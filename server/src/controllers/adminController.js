@@ -83,7 +83,6 @@ const updateParkingSlot = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Parking slot not found' });
     }
     
-    // Update fields
     if (title) slot.title = title;
     if (description) slot.description = description;
     if (location) slot.location = location;
@@ -167,6 +166,51 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// ✅ NEW: Update user role (admin)
+const updateUserRole = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    
+    // Validate role
+    const validRoles = ['user', 'owner', 'admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid role. Must be user, owner, or admin' 
+      });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Prevent removing last admin
+    if (user.role === 'admin' && role !== 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount === 1) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Cannot remove the last admin role from the only admin user' 
+        });
+      }
+    }
+    
+    user.role = role;
+    await user.save();
+    
+    res.status(200).json({ 
+      success: true, 
+      data: { id: user._id, name: user.name, email: user.email, role: user.role },
+      message: `User role updated to ${role} successfully` 
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Verify pending listing (admin)
 const verifyListing = async (req, res) => {
   try {
@@ -201,7 +245,8 @@ module.exports = {
   updateParkingSlot,
   deleteParkingSlot,
   toggleParkingSlotStatus,
-  deleteUser, 
+  deleteUser,
+  updateUserRole,  // ✅ Added to exports
   verifyListing,
   getPendingListings
 };

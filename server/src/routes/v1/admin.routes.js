@@ -8,7 +8,8 @@ const {
   updateParkingSlot,
   deleteParkingSlot,
   toggleParkingSlotStatus,
-  deleteUser, 
+  deleteUser,
+  updateUserRole,  // ✅ ADD THIS - Import the new function
   verifyListing,
   getPendingListings
 } = require('../../controllers/adminController');
@@ -20,6 +21,7 @@ router.use(authorize('admin'));
 // User management
 router.get('/users', getAllUsers);
 router.delete('/users/:id', deleteUser);
+router.put('/users/:userId/role', updateUserRole);  // ✅ ADD THIS - Update user role endpoint
 
 // Dashboard stats
 router.get('/stats', getDashboardStats);
