@@ -52,8 +52,11 @@ const LoginContent = () => {
     setGoogleLoading(true);
     console.log('Google login success, verifying with backend...');
     
+    // Get the API URL from environment variable
+    const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+    
     try {
-      const response = await fetch('${API_BASE_URL}/api/v1/auth/google/verify', {
+      const response = await fetch(`${API_URL}/api/v1/auth/google/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential })
@@ -63,18 +66,11 @@ const LoginContent = () => {
       console.log('Google verification response:', data);
       
       if (data.success) {
-        // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Set authorization header for future requests
-        if (window.axios) {
-          window.axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-        }
-        
         toast.success('Google login successful! Redirecting...');
         
-        // Force redirect to dashboard
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 500);
@@ -112,7 +108,6 @@ const LoginContent = () => {
         className="max-w-md w-full"
       >
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
@@ -123,13 +118,10 @@ const LoginContent = () => {
             <p className="text-blue-100 text-sm mt-1">Sign in to continue to SmartPark</p>
           </div>
 
-          {/* Form */}
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,15 +134,12 @@ const LoginContent = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                     placeholder="Enter your email address"
-                    autoComplete="off"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,12 +152,11 @@ const LoginContent = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                     placeholder="Enter your password"
-                    autoComplete="off"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                   >
                     {showPassword ? '👁️' : '👁️‍🗨️'}
                   </button>
@@ -181,7 +169,7 @@ const LoginContent = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
@@ -193,7 +181,7 @@ const LoginContent = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50"
               >
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
