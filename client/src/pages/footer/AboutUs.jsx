@@ -206,7 +206,7 @@ const AboutUs = () => {
             <div className="flex justify-center gap-4 flex-wrap">
               <Link 
                 to="/search" 
-                className="px-6 py-2.5 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all duration-300 font-medium shadow-md hover:shadow-lg"
+                className="px-6 py-2.5 border-2 border-white text-white rounded-lg hover:bg-white hover:text-blue-600 transition-all duration-300 font-medium"
               >
                 🔍 Find Parking Now
               </Link>
