@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
+import authService from '../../services/authService';
 
 const LoginContent = () => {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ const LoginContent = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -52,41 +53,29 @@ const LoginContent = () => {
     setGoogleLoading(true);
     console.log('Google login success, verifying with backend...');
     
-    const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
-    
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/google/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: credentialResponse.credential })
-      });
-      
-      const data = await response.json();
+      const data = await authService.googleVerify(credentialResponse.credential);
       console.log('Google verification response:', data);
       
       if (data.success) {
-        // Store token and user data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        const result = await googleLogin(data.user, data.token);
         
-        // Update auth context if available
-        if (window.updateAuthContext) {
-          window.updateAuthContext(data.user);
+        if (result.success) {
+          toast.success('Google login successful! Redirecting...');
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 500);
+        } else {
+          toast.error('Failed to update auth state');
+          setGoogleLoading(false);
         }
-        
-        toast.success('Google login successful! Redirecting...');
-        
-        // Use React Router navigation instead of window.location
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 500);
       } else {
         toast.error(data.message || 'Google login failed');
         setGoogleLoading(false);
       }
     } catch (error) {
       console.error('Google verification error:', error);
-      toast.error('Google login failed. Please try again.');
+      toast.error(error.response?.data?.message || 'Google login failed. Please try again.');
       setGoogleLoading(false);
     }
   };
