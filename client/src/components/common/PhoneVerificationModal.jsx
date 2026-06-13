@@ -70,7 +70,7 @@ const PhoneVerificationModal = ({ isOpen, onClose, onComplete, user }) => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put('http://localhost:5001/api/v1/auth/profile',
+      const response = await axios.put('${API_BASE_URL}/api/v1/auth/profile',
         { name: user?.name, phone: validation.cleanNumber },
         { headers: { Authorization: `Bearer ${token}` } }
       );

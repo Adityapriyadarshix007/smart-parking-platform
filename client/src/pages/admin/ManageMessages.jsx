@@ -17,7 +17,7 @@ const ManageMessages = () => {
   const fetchMessages = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/v1/messages/admin/messages', {
+      const response = await axios.get('${API_BASE_URL}/api/v1/messages/admin/messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessages(response.data.data);
@@ -31,7 +31,7 @@ const ManageMessages = () => {
     setSelectedMessage(message);
     try {
       const token = localStorage.getItem('token');
-      await axios.get(`http://localhost:5001/api/v1/messages/admin/messages/${message._id}`, {
+      await axios.get(`${API_BASE_URL}/api/v1/messages/admin/messages/${message._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
     } catch (error) {
@@ -48,7 +48,7 @@ const ManageMessages = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:5001/api/v1/messages/admin/messages/${messageId}/reply`,
+        `${API_BASE_URL}/api/v1/messages/admin/messages/${messageId}/reply`,
         { reply: replyText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -68,7 +68,7 @@ const ManageMessages = () => {
     if (window.confirm('Delete this message?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/v1/messages/admin/messages/${messageId}`, {
+        await axios.delete(`${API_BASE_URL}/api/v1/messages/admin/messages/${messageId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Message deleted');

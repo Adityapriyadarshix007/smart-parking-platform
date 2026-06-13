@@ -53,7 +53,7 @@ const LoginContent = () => {
     console.log('Google login success, verifying with backend...');
     
     try {
-      const response = await fetch('http://localhost:5001/api/v1/auth/google/verify', {
+      const response = await fetch('${API_BASE_URL}/api/v1/auth/google/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential })

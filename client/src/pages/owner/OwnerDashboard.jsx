@@ -89,13 +89,13 @@ const OwnerDashboard = () => {
       const token = localStorage.getItem('token');
       
       const [slotsRes, bookingsRes, earningsRes] = await Promise.all([
-        axios.get('http://localhost:5001/api/v1/owner/my-slots', {
+        axios.get('${API_BASE_URL}/api/v1/owner/my-slots', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:5001/api/v1/owner/bookings', {
+        axios.get('${API_BASE_URL}/api/v1/owner/bookings', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:5001/api/v1/owner/earnings', {
+        axios.get('${API_BASE_URL}/api/v1/owner/earnings', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -138,7 +138,7 @@ const OwnerDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5001/api/v1/owner/slots', newSlot, {
+      const response = await axios.post('${API_BASE_URL}/api/v1/owner/slots', newSlot, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -172,7 +172,7 @@ const OwnerDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/v1/owner/slots/${slotToDelete._id}`, {
+      await axios.delete(`${API_BASE_URL}/api/v1/owner/slots/${slotToDelete._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Parking slot deleted successfully');

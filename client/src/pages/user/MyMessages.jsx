@@ -22,7 +22,7 @@ const MyMessages = () => {
   const fetchMessages = useCallback(async (showToast = false) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/v1/messages/my-messages', {
+      const response = await axios.get('${API_BASE_URL}/api/v1/messages/my-messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const messageData = response.data.data;
@@ -49,7 +49,7 @@ const MyMessages = () => {
   const markMessageAsRead = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/v1/messages/mark-read/${messageId}`, {}, {
+      await axios.put(`${API_BASE_URL}/api/v1/messages/mark-read/${messageId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

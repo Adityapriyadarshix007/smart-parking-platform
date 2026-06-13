@@ -16,7 +16,7 @@ const Header = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/v1/messages/my-messages', {
+      const response = await axios.get('${API_BASE_URL}/api/v1/messages/my-messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
       

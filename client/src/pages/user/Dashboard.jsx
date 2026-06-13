@@ -20,7 +20,7 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const bookingsResponse = await axios.get('http://localhost:5001/api/v1/bookings/my-bookings', {
+      const bookingsResponse = await axios.get('${API_BASE_URL}/api/v1/bookings/my-bookings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       

@@ -19,7 +19,7 @@ const ManageUsers = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/v1/admin/users', {
+      const response = await axios.get('${API_BASE_URL}/api/v1/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(response.data.data);
@@ -40,7 +40,7 @@ const ManageUsers = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/v1/admin/users/${userId}`, {
+      await axios.delete(`${API_BASE_URL}/api/v1/admin/users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('User deleted successfully');
@@ -53,7 +53,7 @@ const ManageUsers = () => {
   const handleUpdateRole = async (userId, newRole) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/v1/admin/users/${userId}/role`, 
+      await axios.put(`${API_BASE_URL}/api/v1/admin/users/${userId}/role`, 
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -78,7 +78,7 @@ const ManageUsers = () => {
   const handleSaveEdit = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/v1/admin/users/${selectedUser._id}`,
+      await axios.put(`${API_BASE_URL}/api/v1/admin/users/${selectedUser._id}`,
         { name: editForm.name, phone: editForm.phone, isVerified: editForm.isVerified },
         { headers: { Authorization: `Bearer ${token}` } }
       );

@@ -1,9 +1,8 @@
 import axios from 'axios';
-
-const API_URL ='https://smart-parking-backend-tefg.onrender.com/api/v1'|| process.env.REACT_APP_API_URL || 'http://localhost:5001/api/v1';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
