@@ -16,10 +16,17 @@ const authService = {
     return response.data;
   },
   
+  // HARDCODED URL - Bypasses api.js completely
   googleVerify: async (credential) => {
-    // This will become: baseURL + '/api/v1/auth/google/verify'
-    const response = await api.post('/api/v1/auth/google/verify', { credential });
-    return response.data;
+    const response = await fetch('https://smart-parking-backend-tefg.onrender.com/api/v1/auth/google/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ credential })
+    });
+    const data = await response.json();
+    return data;
   },
   
   forgotPassword: async (email) => {
