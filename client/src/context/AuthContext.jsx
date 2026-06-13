@@ -54,6 +54,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (userData, authToken) => {
+    try {
+      localStorage.setItem('token', authToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+      setToken(authToken);
+      setUser(userData);
+      return { success: true };
+    } catch (error) {
+      console.error('Google login error:', error);
+      return { success: false, message: error.message || 'Google login failed' };
+    }
+  };
+
   const register = async (userData) => {
     try {
       const response = await authService.register(userData);
@@ -78,7 +92,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      googleLogin,
+      register, 
+      logout, 
+      loading,
+      isAuthenticated: !!user 
+    }}>
       {children}
     </AuthContext.Provider>
   );
