@@ -52,7 +52,6 @@ const LoginContent = () => {
     setGoogleLoading(true);
     console.log('Google login success, verifying with backend...');
     
-    // Get the API URL from environment variable
     const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
     
     try {
@@ -66,13 +65,20 @@ const LoginContent = () => {
       console.log('Google verification response:', data);
       
       if (data.success) {
+        // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
+        // Update auth context if available
+        if (window.updateAuthContext) {
+          window.updateAuthContext(data.user);
+        }
+        
         toast.success('Google login successful! Redirecting...');
         
+        // Use React Router navigation instead of window.location
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          navigate('/dashboard');
         }, 500);
       } else {
         toast.error(data.message || 'Google login failed');
