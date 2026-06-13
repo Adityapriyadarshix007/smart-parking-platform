@@ -60,6 +60,7 @@ const createParkingMarker = () => {
 
 // Add CSS for marker animations
 const addMarkerStyles = () => {
+  if (typeof document === 'undefined') return;
   if (document.getElementById('marker-styles')) return;
   
   const style = document.createElement('style');
@@ -91,7 +92,12 @@ const addMarkerStyles = () => {
 };
 
 const BlinkingMarker = ({ position, slot, onBook, isUserLocation = false }) => {
-  // Validate position
+  // ✅ ALL HOOKS MUST BE CALLED AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => {
+    addMarkerStyles();
+  }, []);
+
+  // ✅ Now we can do validation after hooks
   if (!position || !Array.isArray(position) || position.length !== 2) {
     console.warn('Invalid marker position:', position);
     return null;
@@ -102,10 +108,6 @@ const BlinkingMarker = ({ position, slot, onBook, isUserLocation = false }) => {
     return null;
   }
 
-  useEffect(() => {
-    addMarkerStyles();
-  }, []);
-
   const icon = isUserLocation ? createUserLocationMarker() : createParkingMarker();
 
   // For user location, show different popup
@@ -115,7 +117,7 @@ const BlinkingMarker = ({ position, slot, onBook, isUserLocation = false }) => {
         <Popup>
           <div className="p-2">
             <h3 className="font-bold text-gray-800 text-sm">📍 Your Location</h3>
-            <p className="text-xs text-gray-500 mt-1">{slot.location?.address || 'Current Location'}</p>
+            <p className="text-xs text-gray-500 mt-1">Current Location</p>
           </div>
         </Popup>
       </Marker>
@@ -126,12 +128,12 @@ const BlinkingMarker = ({ position, slot, onBook, isUserLocation = false }) => {
     <Marker position={position} icon={icon}>
       <Popup>
         <div className="p-3 min-w-[200px]">
-          <h3 className="font-bold text-gray-800 text-base mb-1">{slot.title}</h3>
-          <p className="text-xs text-gray-600 mb-2">{slot.location?.address?.substring(0, 60)}</p>
+          <h3 className="font-bold text-gray-800 text-base mb-1">{slot?.title || 'Parking Slot'}</h3>
+          <p className="text-xs text-gray-600 mb-2">{slot?.location?.address?.substring(0, 60) || 'Address not available'}</p>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-green-600 font-semibold">₹{slot.pricing?.hourly}/hour</span>
+            <span className="text-green-600 font-semibold">₹{slot?.pricing?.hourly || 50}/hour</span>
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-              {slot.availableSlots} spots
+              {slot?.availableSlots || 0} spots
             </span>
           </div>
           <button 
