@@ -58,24 +58,28 @@ const LoginContent = () => {
       console.log('Google verification response:', data);
       
       if (data.success) {
-        const result = await googleLogin(data.user, data.token);
+        // Store token and user data directly
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
         
-        if (result.success) {
-          toast.success('Google login successful! Redirecting...');
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 500);
-        } else {
-          toast.error('Failed to update auth state');
-          setGoogleLoading(false);
+        // Also try to update auth context if available
+        if (googleLogin) {
+          await googleLogin(data.user, data.token);
         }
+        
+        toast.success('Google login successful! Redirecting...');
+        
+        // Force redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 500);
       } else {
         toast.error(data.message || 'Google login failed');
         setGoogleLoading(false);
       }
     } catch (error) {
       console.error('Google verification error:', error);
-      toast.error(error.response?.data?.message || 'Google login failed. Please try again.');
+      toast.error('Google login failed. Please try again.');
       setGoogleLoading(false);
     }
   };
