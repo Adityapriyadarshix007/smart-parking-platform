@@ -1,46 +1,59 @@
-import api from './api';
-
-// Determine the correct API path based on what your backend expects
-const API_PATH = '/api/v1';
+// client/src/services/authService.js
+// Hardcoded base URL to avoid any Vercel cache issues
+const BASE_URL = 'https://smart-parking-backend-tefg.onrender.com';
 
 const authService = {
   register: async (userData) => {
-    const response = await api.post(`${API_PATH}/auth/register`, userData);
-    return response.data;
+    const response = await fetch(`${BASE_URL}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
+    return response.json();
   },
   
   login: async (email, password) => {
-    const response = await api.post(`${API_PATH}/auth/login`, { email, password });
-    return response.data;
+    const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    return response.json();
   },
   
   getMe: async () => {
-    const response = await api.get(`${API_PATH}/auth/me`);
-    return response.data;
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
   },
   
   googleVerify: async (credential) => {
-    // Use fetch directly to avoid any baseURL issues
-    const response = await fetch('https://smart-parking-backend-tefg.onrender.com/api/v1/auth/google/verify', {
+    const response = await fetch(`${BASE_URL}/api/v1/auth/google/verify`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential })
     });
-    const data = await response.json();
-    console.log('Google verify response:', data);
-    return data;
+    return response.json();
   },
   
   forgotPassword: async (email) => {
-    const response = await api.post(`${API_PATH}/auth/forgot-password`, { email });
-    return response.data;
+    const response = await fetch(`${BASE_URL}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return response.json();
   },
   
   resetPassword: async (token, password) => {
-    const response = await api.post(`${API_PATH}/auth/reset-password/${token}`, { password });
-    return response.data;
+    const response = await fetch(`${BASE_URL}/api/v1/auth/reset-password/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    return response.json();
   }
 };
 
