@@ -1,0 +1,12 @@
+{
+  "framework": "create-react-app",
+  "buildCommand": "cd client && npm install --legacy-peer-deps && npm run build",
+  "outputDirectory": "client/build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "devCommand": "cd client && npm start",
+  "env": {
+    "DISABLE_ESLINT_PLUGIN": "true",
+    "SKIP_PREFLIGHT_CHECK": "true",
+    "CI": "false"
+  }
+}
