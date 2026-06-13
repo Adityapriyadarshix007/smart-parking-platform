@@ -5,7 +5,7 @@ export const useSocket = (url) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const socketUrl = url || process.env.REACT_APP_SOCKET_URL || '${API_BASE_URL}';
+    const socketUrl = url || process.env.REACT_APP_SOCKET_URL || 'https://smart-parking-backend-tefg.onrender.com';
     socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
       withCredentials: true,

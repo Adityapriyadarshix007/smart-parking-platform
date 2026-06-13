@@ -30,7 +30,7 @@ const ManageParking = () => {
   const fetchAllParking = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/v1/admin/parking/all', {
+      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -54,7 +54,7 @@ const ManageParking = () => {
     setDeleting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.delete(`${API_BASE_URL}/api/v1/admin/parking/${slotToDelete._id}`, {
+      const response = await axios.delete(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${slotToDelete._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -88,7 +88,7 @@ const ManageParking = () => {
   const handleEditSubmit = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${API_BASE_URL}/api/v1/admin/parking/${selectedSlot._id}`, {
+      const response = await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${selectedSlot._id}`, {
         title: editForm.title,
         pricing: { hourly: editForm.hourlyRate },
         totalSlots: editForm.totalSlots,
@@ -116,7 +116,7 @@ const ManageParking = () => {
   const toggleSlotStatus = async (slot) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${API_BASE_URL}/api/v1/admin/parking/${slot._id}/toggle-status`, {}, {
+      const response = await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${slot._id}/toggle-status`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

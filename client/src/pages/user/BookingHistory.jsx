@@ -51,7 +51,7 @@ const BookingHistory = () => {
   const fetchBookings = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/v1/bookings/my-bookings', {
+      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBookings(response.data.data);
@@ -67,7 +67,7 @@ const BookingHistory = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/v1/bookings/${bookingId}/cancel`, {}, {
+      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/${bookingId}/cancel`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Booking cancelled successfully');

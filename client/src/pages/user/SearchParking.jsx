@@ -160,7 +160,7 @@ const SearchParking = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const url = '${API_BASE_URL}/api/v1/parking/nearby';
+      const url = 'https://smart-parking-backend-tefg.onrender.com/api/v1/parking/nearby';
       const params = {
         lat,
         lng,
@@ -234,7 +234,7 @@ const SearchParking = () => {
     try {
       const token = localStorage.getItem('token');
       
-      const orderResponse = await axios.post('${API_BASE_URL}/api/v1/payments/create-order', {
+      const orderResponse = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/payments/create-order', {
         amount: booking.totalPrice,
         currency: 'INR',
         receipt: `booking_${booking._id}`
@@ -250,7 +250,7 @@ const SearchParking = () => {
         description: `Parking Booking - ${selectedSlot.title}`,
         order_id: order.id,
         handler: async (response) => {
-          const verifyResponse = await axios.post('${API_BASE_URL}/api/v1/payments/verify-payment', {
+          const verifyResponse = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/payments/verify-payment', {
             order_id: response.razorpay_order_id,
             payment_id: response.razorpay_payment_id,
             signature: response.razorpay_signature,
@@ -258,7 +258,7 @@ const SearchParking = () => {
           }, { headers: { Authorization: `Bearer ${token}` } });
 
           if (verifyResponse.data.success) {
-            await axios.put('${API_BASE_URL}/api/v1/bookings/confirm', {
+            await axios.put('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/confirm', {
               bookingId: booking._id
             }, { headers: { Authorization: `Bearer ${token}` } });
             
@@ -325,7 +325,7 @@ const SearchParking = () => {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await axios.post('${API_BASE_URL}/api/v1/bookings', {
+      const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
         startTime: bookingDetails.startTime,
         endTime: bookingDetails.endTime,

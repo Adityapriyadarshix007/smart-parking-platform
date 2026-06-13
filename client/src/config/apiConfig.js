@@ -5,7 +5,7 @@ const getApiUrl = () => {
     return 'https://smart-parking-backend-tefg.onrender.com';
   }
   // Development: Use localhost
-  return process.env.REACT_APP_API_URL || '${API_BASE_URL}';
+  return process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
 };
 
 export const API_BASE_URL = getApiUrl();

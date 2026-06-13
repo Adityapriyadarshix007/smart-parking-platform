@@ -26,7 +26,7 @@ const Contact = () => {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
-      const response = await axios.post('${API_BASE_URL}/api/v1/messages/contact', formData, { headers });
+      const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/messages/contact', formData, { headers });
       
       if (response.data.success) {
         toast.success('Message sent successfully! We will get back to you soon.');

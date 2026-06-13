@@ -14,7 +14,7 @@ const VerifyListings = () => {
   const fetchListings = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/v1/admin/pending-listings', {
+      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/pending-listings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setListings(response.data.data);
@@ -28,7 +28,7 @@ const VerifyListings = () => {
   const handleVerify = async (listingId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/v1/admin/listings/${listingId}/verify`, {}, {
+      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/listings/${listingId}/verify`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Listing verified! It will now appear to users.');
@@ -42,7 +42,7 @@ const VerifyListings = () => {
     if (!window.confirm('Reject this listing? This will delete it permanently.')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/api/v1/admin/listings/${listingId}/reject`, {
+      await axios.delete(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/listings/${listingId}/reject`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Listing rejected and removed');
