@@ -1,5 +1,7 @@
 import axios from 'axios';
-import { API_URL } from '../config';
+
+// Base URL should NOT include /api/v1
+const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -17,7 +19,9 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
 api.interceptors.response.use(

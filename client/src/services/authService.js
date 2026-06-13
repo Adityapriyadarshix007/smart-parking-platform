@@ -17,6 +17,7 @@ const authService = {
   },
   
   googleVerify: async (credential) => {
+    // This will become: baseURL + '/api/v1/auth/google/verify'
     const response = await api.post('/api/v1/auth/google/verify', { credential });
     return response.data;
   },
