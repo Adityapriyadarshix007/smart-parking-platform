@@ -16,7 +16,9 @@ const Header = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/v1/messages/my-messages', {
+      // ONLY CHANGE: Fixed the API URL - removed the placeholder and used actual URL with environment variable
+      const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+      const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
