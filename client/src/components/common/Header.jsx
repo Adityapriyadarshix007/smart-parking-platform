@@ -12,7 +12,8 @@ const Header = () => {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [socket, setSocket] = useState(null);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+  // HARDCODED URL - NO VARIABLES, NO DUPLICATE /api/v1
+  const HARDCODED_URL = 'https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages';
 
   // Fetch unread message count from server
   const fetchUnreadCount = async () => {
@@ -26,8 +27,9 @@ const Header = () => {
       }
       
       console.log('🔍 Fetching unread count for user:', user.email);
+      console.log('📡 URL:', HARDCODED_URL);
       
-      const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
+      const response = await axios.get(HARDCODED_URL, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -54,6 +56,7 @@ const Header = () => {
       fetchUnreadCount();
       
       // Connect to Socket.io for real-time updates
+      const API_URL = 'https://smart-parking-backend-tefg.onrender.com';
       const newSocket = io(API_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
