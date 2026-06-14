@@ -20,7 +20,12 @@ const Header = () => {
     
     try {
       const token = localStorage.getItem('token');
-      console.log('Fetching unread count for user:', user.email);
+      if (!token) {
+        console.log('No token found');
+        return;
+      }
+      
+      console.log('🔍 Fetching unread count for user:', user.email);
       
       const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -30,7 +35,7 @@ const Header = () => {
       // Count unread messages where admin has replied and user hasn't read
       const unread = messages.filter(msg => msg.status === 'replied' && msg.userRead === false).length;
       
-      console.log('Unread count:', unread);
+      console.log('📬 Unread count:', unread);
       setUnreadMessageCount(unread);
       localStorage.setItem('unreadMessageCount', unread);
       
@@ -38,7 +43,7 @@ const Header = () => {
       window.dispatchEvent(new CustomEvent('unreadCountUpdate', { detail: { count: unread } }));
       
     } catch (error) {
-      console.error('Error fetching unread count:', error.response?.data || error.message);
+      console.error('❌ Error fetching unread count:', error.response?.status, error.response?.data?.message);
     }
   };
 
@@ -49,17 +54,30 @@ const Header = () => {
       fetchUnreadCount();
       
       // Connect to Socket.io for real-time updates
-      const newSocket = io(API_URL);
+      const newSocket = io(API_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
       setSocket(newSocket);
       
       // Join user's room for private messages
-      newSocket.emit('join-user', user.id);
+      newSocket.on('connect', () => {
+        console.log('🔌 Socket connected, joining user room:', user.id);
+        newSocket.emit('join-user', user.id);
+      });
       
       // Listen for new message replies
       newSocket.on('new-message-reply', (data) => {
-        console.log('Received new message reply:', data);
+        console.log('🔔 Received new message reply:', data);
         // Immediately fetch updated count
         fetchUnreadCount();
+      });
+      
+      // Handle socket errors
+      newSocket.on('connect_error', (error) => {
+        console.log('Socket connection error:', error);
       });
       
       // Poll every 10 seconds as fallback
@@ -67,7 +85,10 @@ const Header = () => {
       
       return () => {
         clearInterval(interval);
-        if (newSocket) newSocket.close();
+        if (newSocket) {
+          newSocket.disconnect();
+          newSocket.close();
+        }
       };
     }
   }, [user]);
@@ -76,7 +97,7 @@ const Header = () => {
   useEffect(() => {
     const handleUnreadUpdate = (event) => {
       if (event.detail && typeof event.detail.count === 'number') {
-        console.log('Unread count updated via event:', event.detail.count);
+        console.log('🔄 Unread count updated via event:', event.detail.count);
         setUnreadMessageCount(event.detail.count);
         localStorage.setItem('unreadMessageCount', event.detail.count);
       }
@@ -87,6 +108,7 @@ const Header = () => {
     // Also check localStorage on mount
     const storedCount = localStorage.getItem('unreadMessageCount');
     if (storedCount && !isNaN(parseInt(storedCount))) {
+      console.log('📦 Stored unread count from localStorage:', parseInt(storedCount));
       setUnreadMessageCount(parseInt(storedCount));
     }
     
@@ -102,6 +124,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-2xl">
               🅿️
@@ -109,6 +132,7 @@ const Header = () => {
             <span className="text-xl font-bold tracking-wide">SmartPark</span>
           </Link>
 
+          {/* Desktop Navigation */}
           {user && (
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/search" className="hover:text-blue-200 transition">Find Parking</Link>
@@ -119,7 +143,7 @@ const Header = () => {
               <Link to="/my-messages" className="hover:text-blue-200 transition relative">
                 Messages
                 {unreadMessageCount > 0 && (
-                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 animate-pulse shadow-lg ring-2 ring-white">
                     {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
                   </span>
                 )}
@@ -130,6 +154,7 @@ const Header = () => {
             </div>
           )}
 
+          {/* Right Section */}
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="hidden md:flex items-center space-x-4">
@@ -167,6 +192,7 @@ const Header = () => {
               </div>
             )}
 
+            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-md bg-white/10 hover:bg-white/20 transition"
@@ -176,6 +202,7 @@ const Header = () => {
           </div>
         </div>
 
+        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -191,7 +218,7 @@ const Header = () => {
                   <Link to="/my-messages" className="px-4 py-2 hover:bg-white/10 rounded-md relative flex items-center gap-2">
                     Messages
                     {unreadMessageCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                      <span className="bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ml-1">
                         {unreadMessageCount}
                       </span>
                     )}
