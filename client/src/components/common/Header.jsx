@@ -12,25 +12,33 @@ const Header = () => {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [socket, setSocket] = useState(null);
 
+  const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+
   // Fetch unread message count from server
   const fetchUnreadCount = async () => {
     if (!user) return;
     
     try {
       const token = localStorage.getItem('token');
-      const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+      console.log('Fetching unread count for user:', user.email);
+      
       const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      const unread = response.data.data?.filter(msg => 
-        msg.status === 'replied' && !msg.userRead
-      ).length || 0;
+      const messages = response.data.data || [];
+      // Count unread messages where admin has replied and user hasn't read
+      const unread = messages.filter(msg => msg.status === 'replied' && msg.userRead === false).length;
       
+      console.log('Unread count:', unread);
       setUnreadMessageCount(unread);
       localStorage.setItem('unreadMessageCount', unread);
+      
+      // Also dispatch event for any other components
+      window.dispatchEvent(new CustomEvent('unreadCountUpdate', { detail: { count: unread } }));
+      
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      console.error('Error fetching unread count:', error.response?.data || error.message);
     }
   };
 
@@ -40,9 +48,8 @@ const Header = () => {
       // Initial fetch
       fetchUnreadCount();
       
-      // Connect to Socket.io
-      const socketUrl = 'https://smart-parking-backend-tefg.onrender.com';
-      const newSocket = io(socketUrl);
+      // Connect to Socket.io for real-time updates
+      const newSocket = io(API_URL);
       setSocket(newSocket);
       
       // Join user's room for private messages
@@ -50,16 +57,13 @@ const Header = () => {
       
       // Listen for new message replies
       newSocket.on('new-message-reply', (data) => {
-        if (data.userId === user.id) {
-          // Increment unread count immediately
-          setUnreadMessageCount(prev => prev + 1);
-          // Also fetch to sync with server
-          fetchUnreadCount();
-        }
+        console.log('Received new message reply:', data);
+        // Immediately fetch updated count
+        fetchUnreadCount();
       });
       
-      // Poll every 15 seconds as fallback
-      const interval = setInterval(fetchUnreadCount, 15000);
+      // Poll every 10 seconds as fallback
+      const interval = setInterval(fetchUnreadCount, 10000);
       
       return () => {
         clearInterval(interval);
@@ -72,11 +76,20 @@ const Header = () => {
   useEffect(() => {
     const handleUnreadUpdate = (event) => {
       if (event.detail && typeof event.detail.count === 'number') {
+        console.log('Unread count updated via event:', event.detail.count);
         setUnreadMessageCount(event.detail.count);
+        localStorage.setItem('unreadMessageCount', event.detail.count);
       }
     };
     
     window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
+    
+    // Also check localStorage on mount
+    const storedCount = localStorage.getItem('unreadMessageCount');
+    if (storedCount && !isNaN(parseInt(storedCount))) {
+      setUnreadMessageCount(parseInt(storedCount));
+    }
+    
     return () => window.removeEventListener('unreadCountUpdate', handleUnreadUpdate);
   }, []);
 
