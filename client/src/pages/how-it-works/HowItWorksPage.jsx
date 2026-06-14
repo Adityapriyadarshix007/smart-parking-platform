@@ -290,7 +290,7 @@ const HowItWorksPage = () => {
           </div>
         </motion.div>
 
-        {/* CTA */}
+        {/* CTA - FIXED: Both buttons now have consistent border styling */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -305,10 +305,16 @@ const HowItWorksPage = () => {
               Join thousands of satisfied users who have simplified their parking experience
             </p>
             <div className="flex justify-center gap-4 flex-wrap">
-              <Link to="/search" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold">
+              <Link 
+                to="/search" 
+                className="px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition font-semibold"
+              >
                 Find Parking Now
               </Link>
-              <Link to="/register" className="px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition font-semibold">
+              <Link 
+                to="/register" 
+                className="px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition font-semibold"
+              >
                 Register as Owner
               </Link>
             </div>
