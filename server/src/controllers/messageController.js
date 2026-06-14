@@ -123,7 +123,7 @@ const getMessage = async (req, res) => {
   }
 };
 
-// Reply to message (Admin only)
+// Reply to message (Admin only) - WITH SOCKET.IO EVENT FIXED
 const replyToMessage = async (req, res) => {
   try {
     const { reply } = req.body;
@@ -140,6 +140,27 @@ const replyToMessage = async (req, res) => {
     await message.save();
     
     console.log(`Reply sent to message ${message._id} for user ${message.email}`);
+    
+    // ✅ EMIT SOCKET EVENT FOR REAL-TIME NOTIFICATION (INSIDE FUNCTION)
+    const io = req.app.get('io');
+    if (io) {
+      // Emit to user's specific room
+      if (message.userId) {
+        io.to(`user-${message.userId}`).emit('new-message-reply', {
+          userId: message.userId,
+          messageId: message._id,
+          subject: message.subject
+        });
+        console.log(`Socket emitted to user-${message.userId}`);
+      }
+      // Also emit to admin room for admin panel updates
+      io.emit('message-reply-sent', {
+        messageId: message._id,
+        userEmail: message.email
+      });
+    } else {
+      console.log('Socket.io not available');
+    }
     
     res.status(200).json({
       success: true,
@@ -201,16 +222,3 @@ module.exports = {
   markMessageAsRead,
   deleteMessage
 };
-
-// Update the replyToMessage function to emit socket event
-// Add this line after saving the message:
-
-// Emit socket event for real-time notification
-const io = req.app.get('io');
-if (io) {
-  io.to(`user-${message.userId}`).emit('new-message-reply', {
-    userId: message.userId,
-    messageId: message._id,
-    subject: message.subject
-  });
-}
