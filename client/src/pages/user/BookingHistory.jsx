@@ -139,6 +139,19 @@ For support: support@smartpark.com | +91 98765 43210
   };
 
   const getStatusBadge = (status) => {
+  // Check if booking has expired
+  const isExpired = (endTime) => {
+    return new Date(endTime) < new Date();
+  };
+
+  // Get display status (override active if expired)
+  const getDisplayStatus = (booking) => {
+    if (booking.status === active && isExpired(booking.endTime)) {
+      return expired;
+    }
+    return booking.status;
+  };
+
     const colors = {
       confirmed: 'bg-green-100 text-green-700',
       pending: 'bg-yellow-100 text-yellow-700',
