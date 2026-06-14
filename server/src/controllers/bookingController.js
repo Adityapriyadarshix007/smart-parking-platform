@@ -132,7 +132,7 @@ const getBookingByReceipt = async (req, res) => {
   }
 };
 
-// Cancel booking
+// Cancel booking - FIXED VERSION
 const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -149,11 +149,15 @@ const cancelBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booking cannot be cancelled' });
     }
     
+    // FIX: Store original status BEFORE changing
+    const wasConfirmed = booking.status === 'confirmed';
+    
+    // Update booking status
     booking.status = 'cancelled';
     await booking.save();
     
-    // Increase available slots back if it was confirmed
-    if (booking.status === 'confirmed') {
+    // FIX: Increase available slots back if it was confirmed
+    if (wasConfirmed) {
       const slot = await ParkingSlot.findById(booking.slotId);
       if (slot) {
         slot.availableSlots += 1;

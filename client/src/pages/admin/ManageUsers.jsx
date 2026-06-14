@@ -8,6 +8,7 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [showAdmins, setShowAdmins] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', phone: '', role: '', isVerified: false });
@@ -103,7 +104,8 @@ const ManageUsers = () => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesAdminFilter = showAdmins || user.role !== 'admin';
+    return matchesSearch && matchesRole && matchesAdminFilter;
   });
 
   if (loading) {
@@ -142,6 +144,15 @@ const ManageUsers = () => {
               <option value="owner">Parking Owner</option>
               <option value="user">Regular User</option>
             </select>
+            <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAdmins}
+                onChange={(e) => setShowAdmins(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded"
+              />
+              <span className="text-sm text-gray-700">Hide Admin Users</span>
+            </label>
           </div>
           
           {/* Users Table */}

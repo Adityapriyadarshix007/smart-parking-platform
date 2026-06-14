@@ -44,6 +44,11 @@ const BookingHistory = () => {
     });
   };
 
+  // Check if booking is in the past
+  const isPastBooking = (endTime) => {
+    return new Date(endTime) < new Date();
+  };
+
   useEffect(() => {
     fetchBookings();
   }, []);
@@ -229,9 +234,9 @@ For support: support@smartpark.com | +91 98765 43210
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons - FIXED: Cancel button only shows for non-past bookings */}
                   <div className="flex gap-3">
-                    {booking.status === 'confirmed' && (
+                    {booking.status === 'confirmed' && !isPastBooking(booking.endTime) && (
                       <button
                         onClick={() => cancelBooking(booking._id)}
                         className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
