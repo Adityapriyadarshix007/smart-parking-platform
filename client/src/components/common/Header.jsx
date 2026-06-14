@@ -15,14 +15,17 @@ const Header = () => {
   // HARDCODED URL - NO VARIABLES, NO DUPLICATE /api/v1
   const HARDCODED_URL = 'https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages';
 
-  // Fetch unread message count from server
-  const fetchUnreadCount = async () => {
+  // Fetch unread message count from server with retry logic
+  const fetchUnreadCount = async (retryCount = 0) => {
     if (!user) return;
     
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found');
+        console.log('No token found, retrying in 1 second...');
+        if (retryCount < 5) {
+          setTimeout(() => fetchUnreadCount(retryCount + 1), 1000);
+        }
         return;
       }
       
@@ -46,12 +49,16 @@ const Header = () => {
       
     } catch (error) {
       console.error('❌ Error fetching unread count:', error.response?.status, error.response?.data?.message);
+      if (error.response?.status === 401 && retryCount < 3) {
+        console.log('Retrying fetch due to 401...');
+        setTimeout(() => fetchUnreadCount(retryCount + 1), 2000);
+      }
     }
   };
 
   // Setup WebSocket for real-time notifications
   useEffect(() => {
-    if (user) {
+    if (user && user.id) {
       // Initial fetch
       fetchUnreadCount();
       
@@ -84,7 +91,7 @@ const Header = () => {
       });
       
       // Poll every 10 seconds as fallback
-      const interval = setInterval(fetchUnreadCount, 10000);
+      const interval = setInterval(() => fetchUnreadCount(), 10000);
       
       return () => {
         clearInterval(interval);
@@ -93,6 +100,15 @@ const Header = () => {
           newSocket.close();
         }
       };
+    } else if (user && !user.id) {
+      console.log('Waiting for user ID to be available...');
+      // Retry after a delay if user exists but no ID
+      const timer = setTimeout(() => {
+        if (user && user.id) {
+          fetchUnreadCount();
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [user]);
 
