@@ -59,7 +59,7 @@ const MyMessages = () => {
       ));
       
       // Update unread count
-      const newUnreadCount = unreadCount - 1;
+      const newUnreadCount = Math.max(0, unreadCount - 1);
       updateUnreadCount(newUnreadCount);
       
     } catch (error) {
@@ -67,12 +67,48 @@ const MyMessages = () => {
     }
   };
 
+  // Mark ALL messages as read when page loads (so badge clears when user visits)
+  const markAllMessagesAsRead = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const unreadMessages = messages.filter(msg => msg.status === 'replied' && !msg.userRead);
+      
+      for (const msg of unreadMessages) {
+        await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/messages/mark-read/${msg._id}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      // Update local state for all unread messages
+      if (unreadMessages.length > 0) {
+        setMessages(prev => prev.map(msg => 
+          msg.status === 'replied' && !msg.userRead 
+            ? { ...msg, userRead: true, status: 'read' } 
+            : msg
+        ));
+        
+        // Set unread count to 0
+        updateUnreadCount(0);
+      }
+      
+    } catch (error) {
+      console.error('Error marking all messages as read:', error);
+    }
+  }, [messages, updateUnreadCount]);
+
   useEffect(() => {
     fetchMessages();
     // Auto-refresh every 30 seconds to check for new messages
     const interval = setInterval(() => fetchMessages(), 30000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
+
+  // Mark all messages as read when component mounts (user visited the page)
+  useEffect(() => {
+    if (!loading && messages.length > 0) {
+      markAllMessagesAsRead();
+    }
+  }, [loading, messages.length, markAllMessagesAsRead]);
 
   // When user selects a message, mark it as read
   const handleSelectMessage = async (message) => {
