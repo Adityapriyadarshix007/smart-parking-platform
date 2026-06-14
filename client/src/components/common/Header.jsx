@@ -16,16 +16,16 @@ const Header = () => {
     
     try {
       const token = localStorage.getItem('token');
-      // ONLY CHANGE: Fixed the API URL - removed the placeholder and used actual URL with environment variable
       const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
       const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Count messages that have adminReply and user hasn't read them
-      const unread = response.data.data.filter(msg => msg.status === 'replied' && !msg.userRead).length;
+      // Count unread messages where admin has replied and user hasn't read
+      const unread = response.data.data?.filter(msg => 
+        msg.status === 'replied' && !msg.userRead
+      ).length || 0;
       setUnreadMessageCount(unread);
-      localStorage.setItem('unreadMessageCount', unread);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
@@ -33,24 +33,26 @@ const Header = () => {
 
   // Listen for custom event from MyMessages page
   useEffect(() => {
-    fetchUnreadCount();
-    
-    // Listen for unread count updates
-    const handleUnreadUpdate = (event) => {
-      if (event.detail && typeof event.detail.count === 'number') {
-        setUnreadMessageCount(event.detail.count);
-      }
-    };
-    
-    window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
-    
-    // Poll for new messages every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('unreadCountUpdate', handleUnreadUpdate);
-    };
+    if (user) {
+      fetchUnreadCount();
+      
+      // Listen for unread count updates
+      const handleUnreadUpdate = (event) => {
+        if (event.detail && typeof event.detail.count === 'number') {
+          setUnreadMessageCount(event.detail.count);
+        }
+      };
+      
+      window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
+      
+      // Poll for new messages every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('unreadCountUpdate', handleUnreadUpdate);
+      };
+    }
   }, [user]);
 
   const handleLogout = () => {
@@ -62,7 +64,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo - Always visible */}
+          {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-2xl">
               🅿️
@@ -70,20 +72,23 @@ const Header = () => {
             <span className="text-xl font-bold tracking-wide">SmartPark</span>
           </Link>
 
-          {/* Desktop Navigation - Only show when logged in */}
+          {/* Desktop Navigation */}
           {user && (
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/search" className="hover:text-blue-200 transition">Find Parking</Link>
               <Link to="/dashboard" className="hover:text-blue-200 transition">Dashboard</Link>
               <Link to="/my-bookings" className="hover:text-blue-200 transition">My Bookings</Link>
+              
+              {/* Messages Link with Notification Badge */}
               <Link to="/my-messages" className="hover:text-blue-200 transition relative">
                 Messages
                 {unreadMessageCount > 0 && (
-                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                    {unreadMessageCount}
+                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+                    {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
                   </span>
                 )}
               </Link>
+              
               <Link to="/features" className="hover:text-blue-200 transition">Features</Link>
               <Link to="/how-it-works" className="hover:text-blue-200 transition">How It Works</Link>
             </div>
@@ -150,14 +155,17 @@ const Header = () => {
                   <Link to="/search" className="px-4 py-2 hover:bg-white/10 rounded-md">Find Parking</Link>
                   <Link to="/dashboard" className="px-4 py-2 hover:bg-white/10 rounded-md">Dashboard</Link>
                   <Link to="/my-bookings" className="px-4 py-2 hover:bg-white/10 rounded-md">My Bookings</Link>
-                  <Link to="/my-messages" className="px-4 py-2 hover:bg-white/10 rounded-md relative">
+                  
+                  {/* Mobile Messages with Badge */}
+                  <Link to="/my-messages" className="px-4 py-2 hover:bg-white/10 rounded-md relative flex items-center gap-2">
                     Messages
                     {unreadMessageCount > 0 && (
-                      <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {unreadMessageCount} new
+                      <span className="bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {unreadMessageCount}
                       </span>
                     )}
                   </Link>
+                  
                   <Link to="/features" className="px-4 py-2 hover:bg-white/10 rounded-md">Features</Link>
                   <Link to="/how-it-works" className="px-4 py-2 hover:bg-white/10 rounded-md">How It Works</Link>
                   {user.role === 'owner' && (
