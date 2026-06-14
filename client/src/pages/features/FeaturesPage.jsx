@@ -248,7 +248,7 @@ const FeaturesPage = () => {
           </div>
         </motion.div>
 
-        {/* CTA */}
+        {/* CTA - FIXED: Both buttons now have consistent styling */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -260,10 +260,16 @@ const FeaturesPage = () => {
             Join thousands of satisfied users who have made parking effortless with SmartPark
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
-            <Link to="/search" className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition font-semibold">
+            <Link 
+              to="/search" 
+              className="px-6 py-3 border-2 border-white text-white rounded-lg hover:bg-white hover:text-blue-600 transition font-semibold"
+            >
               Find Parking Now
             </Link>
-            <Link to="/register" className="px-6 py-3 border-2 border-white rounded-lg hover:bg-white hover:text-blue-600 transition font-semibold">
+            <Link 
+              to="/register" 
+              className="px-6 py-3 border-2 border-white text-white rounded-lg hover:bg-white hover:text-blue-600 transition font-semibold"
+            >
               List Your Space
             </Link>
           </div>
