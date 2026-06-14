@@ -49,6 +49,19 @@ const BookingHistory = () => {
     return new Date(endTime) < new Date();
   };
 
+  // Check if booking has expired
+  const isExpired = (endTime) => {
+    return new Date(endTime) < new Date();
+  };
+
+  // Get display status (override active/confirmed if expired)
+  const getDisplayStatus = (booking) => {
+    if ((booking.status === 'confirmed' || booking.status === 'active') && isExpired(booking.endTime)) {
+      return 'expired';
+    }
+    return booking.status;
+  };
+
   useEffect(() => {
     fetchBookings();
   }, []);
@@ -139,25 +152,12 @@ For support: support@smartpark.com | +91 98765 43210
   };
 
   const getStatusBadge = (status) => {
-  // Check if booking has expired
-  const isExpired = (endTime) => {
-    return new Date(endTime) < new Date();
-  };
-
-  // Get display status (override active if expired)
-  const getDisplayStatus = (booking) => {
-    if (booking.status === active && isExpired(booking.endTime)) {
-      return expired;
-    }
-    return booking.status;
-  };
-
     const colors = {
       confirmed: 'bg-green-100 text-green-700',
       pending: 'bg-yellow-100 text-yellow-700',
       cancelled: 'bg-red-100 text-red-700',
       completed: 'bg-blue-100 text-blue-700',
-      expired: 'bg-gray-100 text-gray-700'
+      expired: 'bg-gray-100 text-gray-500'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
@@ -189,109 +189,112 @@ For support: support@smartpark.com | +91 98765 43210
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((booking, index) => (
-              <motion.div
-                key={booking._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition"
-              >
-                <div className="p-6">
-                  {/* Receipt Number Header */}
-                  <div className="flex justify-between items-start mb-4 pb-3 border-b">
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">Receipt Number</div>
-                      <div className="font-mono text-lg font-bold text-blue-600">
-                        {booking.receiptNumber || `SPRK${booking._id.slice(-8).toUpperCase()}`}
+            {bookings.map((booking, index) => {
+              const displayStatus = getDisplayStatus(booking);
+              return (
+                <motion.div
+                  key={booking._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition"
+                >
+                  <div className="p-6">
+                    {/* Receipt Number Header */}
+                    <div className="flex justify-between items-start mb-4 pb-3 border-b">
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Receipt Number</div>
+                        <div className="font-mono text-lg font-bold text-blue-600">
+                          {booking.receiptNumber || `SPRK${booking._id.slice(-8).toUpperCase()}`}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Booking ID</div>
+                        <div className="font-mono text-xs text-gray-500">{booking._id.slice(-8).toUpperCase()}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">Booking ID</div>
-                      <div className="font-mono text-xs text-gray-500">{booking._id.slice(-8).toUpperCase()}</div>
-                    </div>
-                  </div>
 
-                  {/* Main Content */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">{booking.slotId?.title}</h3>
-                      <p className="text-gray-600 text-sm">{booking.slotId?.location?.address}</p>
-                      <p className="text-gray-500 text-xs mt-1">{booking.slotId?.location?.city}, {booking.slotId?.location?.state}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(booking.status)}`}>
-                        {booking.status?.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Details Grid */}
-                  <div className="grid md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vehicle</div>
-                      <div className="font-semibold text-gray-800">{booking.vehicleNumber}</div>
-                      <div className="text-xs text-gray-500 capitalize">{booking.vehicleType}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date & Time</div>
-                      <div className="font-semibold text-gray-800">{formatCompactDate(booking.startTime)}</div>
-                      <div className="text-xs text-gray-500">
-                        {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                    {/* Main Content */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-1">{booking.slotId?.title}</h3>
+                        <p className="text-gray-600 text-sm">{booking.slotId?.location?.address}</p>
+                        <p className="text-gray-500 text-xs mt-1">{booking.slotId?.location?.city}, {booking.slotId?.location?.state}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(displayStatus)}`}>
+                          {displayStatus?.toUpperCase()}
+                        </span>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Amount</div>
-                      <div className="text-2xl font-bold text-green-600">₹{booking.totalPrice}</div>
-                      <div className="text-xs text-gray-500">Payment: {booking.paymentStatus?.toUpperCase() || 'PAID'}</div>
-                    </div>
-                  </div>
 
-                  {/* Action Buttons - FIXED: Cancel button only shows for non-past bookings */}
-                  <div className="flex gap-3">
-                    {booking.status === 'confirmed' && !isPastBooking(booking.endTime) && (
+                    {/* Details Grid */}
+                    <div className="grid md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vehicle</div>
+                        <div className="font-semibold text-gray-800">{booking.vehicleNumber}</div>
+                        <div className="text-xs text-gray-500 capitalize">{booking.vehicleType}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date & Time</div>
+                        <div className="font-semibold text-gray-800">{formatCompactDate(booking.startTime)}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Amount</div>
+                        <div className="text-2xl font-bold text-green-600">₹{booking.totalPrice}</div>
+                        <div className="text-xs text-gray-500">Payment: {booking.paymentStatus?.toUpperCase() || 'PAID'}</div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      {booking.status === 'confirmed' && !isPastBooking(booking.endTime) && (
+                        <button
+                          onClick={() => cancelBooking(booking._id)}
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                        >
+                          Cancel Booking
+                        </button>
+                      )}
                       <button
-                        onClick={() => cancelBooking(booking._id)}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                        onClick={() => downloadReceipt(booking)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm flex items-center gap-2"
                       >
-                        Cancel Booking
+                        📄 Download Receipt
                       </button>
-                    )}
-                    <button
-                      onClick={() => downloadReceipt(booking)}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm flex items-center gap-2"
-                    >
-                      📄 Download Receipt
-                    </button>
-                    <button
-                      onClick={() => setSelectedBooking(selectedBooking === booking._id ? null : booking._id)}
-                      className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm"
-                    >
-                      {selectedBooking === booking._id ? 'Hide Details' : 'View Details'}
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => setSelectedBooking(selectedBooking === booking._id ? null : booking._id)}
+                        className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm"
+                      >
+                        {selectedBooking === booking._id ? 'Hide Details' : 'View Details'}
+                      </button>
+                    </div>
 
-                  {/* Expanded Details */}
-                  {selectedBooking === booking._id && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 pt-4 border-t"
-                    >
-                      <h4 className="font-semibold text-gray-800 mb-3">Booking Details</h4>
-                      <div className="grid md:grid-cols-2 gap-3 text-sm">
-                        <div><span className="text-gray-500">Receipt Number:</span> <span className="font-mono">{booking.receiptNumber || `SPRK${booking._id.slice(-8).toUpperCase()}`}</span></div>
-                        <div><span className="text-gray-500">Booking Date:</span> {formatDate(booking.createdAt)}</div>
-                        <div><span className="text-gray-500">Duration:</span> {Math.ceil((new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60))} hours</div>
-                        <div><span className="text-gray-500">Payment ID:</span> {booking.paymentId || 'N/A'}</div>
-                        <div><span className="text-gray-500">Start Time:</span> {formatDate(booking.startTime)}</div>
-                        <div><span className="text-gray-500">End Time:</span> {formatDate(booking.endTime)}</div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                    {/* Expanded Details */}
+                    {selectedBooking === booking._id && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-4 pt-4 border-t"
+                      >
+                        <h4 className="font-semibold text-gray-800 mb-3">Booking Details</h4>
+                        <div className="grid md:grid-cols-2 gap-3 text-sm">
+                          <div><span className="text-gray-500">Receipt Number:</span> <span className="font-mono">{booking.receiptNumber || `SPRK${booking._id.slice(-8).toUpperCase()}`}</span></div>
+                          <div><span className="text-gray-500">Booking Date:</span> {formatDate(booking.createdAt)}</div>
+                          <div><span className="text-gray-500">Duration:</span> {Math.ceil((new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60))} hours</div>
+                          <div><span className="text-gray-500">Payment ID:</span> {booking.paymentId || 'N/A'}</div>
+                          <div><span className="text-gray-500">Start Time:</span> {formatDate(booking.startTime)}</div>
+                          <div><span className="text-gray-500">End Time:</span> {formatDate(booking.endTime)}</div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
