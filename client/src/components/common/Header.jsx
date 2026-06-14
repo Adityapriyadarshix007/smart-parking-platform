@@ -15,6 +15,13 @@ const Header = () => {
   // HARDCODED URL - NO VARIABLES, NO DUPLICATE /api/v1
   const HARDCODED_URL = 'https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages';
 
+  // Get user ID (works with both id and _id)
+  const getUserId = () => {
+    if (user?.id) return user.id;
+    if (user?._id) return user._id;
+    return null;
+  };
+
   // Fetch unread message count from server with retry logic
   const fetchUnreadCount = async (retryCount = 0) => {
     if (!user) return;
@@ -29,7 +36,7 @@ const Header = () => {
         return;
       }
       
-      console.log('🔍 Fetching unread count for user:', user.email);
+      console.log('🔍 Fetching unread count for user:', user.email || user.name);
       console.log('📡 URL:', HARDCODED_URL);
       
       const response = await axios.get(HARDCODED_URL, {
@@ -58,7 +65,10 @@ const Header = () => {
 
   // Setup WebSocket for real-time notifications
   useEffect(() => {
-    if (user && user.id) {
+    const userId = getUserId();
+    
+    if (user && userId) {
+      console.log('✅ User found, userId:', userId);
       // Initial fetch
       fetchUnreadCount();
       
@@ -74,8 +84,8 @@ const Header = () => {
       
       // Join user's room for private messages
       newSocket.on('connect', () => {
-        console.log('🔌 Socket connected, joining user room:', user.id);
-        newSocket.emit('join-user', user.id);
+        console.log('🔌 Socket connected, joining user room:', userId);
+        newSocket.emit('join-user', userId);
       });
       
       // Listen for new message replies
@@ -100,15 +110,11 @@ const Header = () => {
           newSocket.close();
         }
       };
-    } else if (user && !user.id) {
+    } else if (user && !userId) {
+      console.log('⚠️ User exists but no ID. User object:', user);
       console.log('Waiting for user ID to be available...');
-      // Retry after a delay if user exists but no ID
-      const timer = setTimeout(() => {
-        if (user && user.id) {
-          fetchUnreadCount();
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
+    } else {
+      console.log('No user logged in');
     }
   }, [user]);
 
