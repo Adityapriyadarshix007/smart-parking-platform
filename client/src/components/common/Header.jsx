@@ -3,14 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import io from 'socket.io-client';
 
 const Header = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [socket, setSocket] = useState(null);
 
-  // Fetch unread message count
+  // Fetch unread message count from server
   const fetchUnreadCount = async () => {
     if (!user) return;
     
@@ -21,39 +23,62 @@ const Header = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Count unread messages where admin has replied and user hasn't read
       const unread = response.data.data?.filter(msg => 
         msg.status === 'replied' && !msg.userRead
       ).length || 0;
+      
       setUnreadMessageCount(unread);
+      localStorage.setItem('unreadMessageCount', unread);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
   };
 
-  // Listen for custom event from MyMessages page
+  // Setup WebSocket for real-time notifications
   useEffect(() => {
     if (user) {
+      // Initial fetch
       fetchUnreadCount();
       
-      // Listen for unread count updates
-      const handleUnreadUpdate = (event) => {
-        if (event.detail && typeof event.detail.count === 'number') {
-          setUnreadMessageCount(event.detail.count);
+      // Connect to Socket.io
+      const socketUrl = 'https://smart-parking-backend-tefg.onrender.com';
+      const newSocket = io(socketUrl);
+      setSocket(newSocket);
+      
+      // Join user's room for private messages
+      newSocket.emit('join-user', user.id);
+      
+      // Listen for new message replies
+      newSocket.on('new-message-reply', (data) => {
+        if (data.userId === user.id) {
+          // Increment unread count immediately
+          setUnreadMessageCount(prev => prev + 1);
+          // Also fetch to sync with server
+          fetchUnreadCount();
         }
-      };
+      });
       
-      window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
-      
-      // Poll for new messages every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
+      // Poll every 15 seconds as fallback
+      const interval = setInterval(fetchUnreadCount, 15000);
       
       return () => {
         clearInterval(interval);
-        window.removeEventListener('unreadCountUpdate', handleUnreadUpdate);
+        if (newSocket) newSocket.close();
       };
     }
   }, [user]);
+
+  // Listen for custom event from MyMessages page
+  useEffect(() => {
+    const handleUnreadUpdate = (event) => {
+      if (event.detail && typeof event.detail.count === 'number') {
+        setUnreadMessageCount(event.detail.count);
+      }
+    };
+    
+    window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
+    return () => window.removeEventListener('unreadCountUpdate', handleUnreadUpdate);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -64,7 +89,6 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-2xl">
               🅿️
@@ -72,14 +96,13 @@ const Header = () => {
             <span className="text-xl font-bold tracking-wide">SmartPark</span>
           </Link>
 
-          {/* Desktop Navigation */}
           {user && (
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/search" className="hover:text-blue-200 transition">Find Parking</Link>
               <Link to="/dashboard" className="hover:text-blue-200 transition">Dashboard</Link>
               <Link to="/my-bookings" className="hover:text-blue-200 transition">My Bookings</Link>
               
-              {/* Messages Link with Notification Badge */}
+              {/* Messages with Notification Badge */}
               <Link to="/my-messages" className="hover:text-blue-200 transition relative">
                 Messages
                 {unreadMessageCount > 0 && (
@@ -94,7 +117,6 @@ const Header = () => {
             </div>
           )}
 
-          {/* Right Section */}
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="hidden md:flex items-center space-x-4">
@@ -132,7 +154,6 @@ const Header = () => {
               </div>
             )}
 
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-md bg-white/10 hover:bg-white/20 transition"
@@ -142,7 +163,6 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -155,8 +175,6 @@ const Header = () => {
                   <Link to="/search" className="px-4 py-2 hover:bg-white/10 rounded-md">Find Parking</Link>
                   <Link to="/dashboard" className="px-4 py-2 hover:bg-white/10 rounded-md">Dashboard</Link>
                   <Link to="/my-bookings" className="px-4 py-2 hover:bg-white/10 rounded-md">My Bookings</Link>
-                  
-                  {/* Mobile Messages with Badge */}
                   <Link to="/my-messages" className="px-4 py-2 hover:bg-white/10 rounded-md relative flex items-center gap-2">
                     Messages
                     {unreadMessageCount > 0 && (
@@ -165,7 +183,6 @@ const Header = () => {
                       </span>
                     )}
                   </Link>
-                  
                   <Link to="/features" className="px-4 py-2 hover:bg-white/10 rounded-md">Features</Link>
                   <Link to="/how-it-works" className="px-4 py-2 hover:bg-white/10 rounded-md">How It Works</Link>
                   {user.role === 'owner' && (
@@ -180,8 +197,6 @@ const Header = () => {
                 <>
                   <Link to="/login" className="px-4 py-2 text-center border-2 border-white rounded-md">Login</Link>
                   <Link to="/register" className="px-4 py-2 text-center bg-orange-500 rounded-md">Sign Up</Link>
-                  <Link to="/features" className="px-4 py-2 hover:bg-white/10 rounded-md">Features</Link>
-                  <Link to="/how-it-works" className="px-4 py-2 hover:bg-white/10 rounded-md">How It Works</Link>
                 </>
               )}
             </div>

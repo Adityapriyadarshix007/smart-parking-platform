@@ -201,3 +201,16 @@ module.exports = {
   markMessageAsRead,
   deleteMessage
 };
+
+// Update the replyToMessage function to emit socket event
+// Add this line after saving the message:
+
+// Emit socket event for real-time notification
+const io = req.app.get('io');
+if (io) {
+  io.to(`user-${message.userId}`).emit('new-message-reply', {
+    userId: message.userId,
+    messageId: message._id,
+    subject: message.subject
+  });
+}

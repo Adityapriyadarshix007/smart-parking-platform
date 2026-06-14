@@ -99,7 +99,7 @@ const MyMessages = () => {
   useEffect(() => {
     fetchMessages();
     // Auto-refresh every 30 seconds to check for new messages
-    const interval = setInterval(() => fetchMessages(), 30000);
+    const interval = setInterval(() => fetchMessages(), 10000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
