@@ -8,13 +8,18 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [showAdmins, setShowAdmins] = useState(false);
+  const [hideAdmins, setHideAdmins] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', phone: '', role: '', isVerified: false });
+  const [updatingRole, setUpdatingRole] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    // Get current logged-in admin ID
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setCurrentAdminId(user.id);
   }, []);
 
   const fetchUsers = async () => {
@@ -27,13 +32,14 @@ const ManageUsers = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleDeleteUser = async (userId, userRole) => {
     if (userRole === 'admin') {
-      toast.error('Cannot delete admin users');
+      toast.error('Cannot delete admin users from this panel');
       return;
     }
     
@@ -52,16 +58,25 @@ const ManageUsers = () => {
   };
 
   const handleUpdateRole = async (userId, newRole) => {
+    // Don't allow changing own role
+    if (userId === currentAdminId) {
+      toast.error('You cannot change your own role. Ask another admin to change it.');
+      return;
+    }
+    
+    setUpdatingRole(true);
     try {
       const token = localStorage.getItem('token');
       await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users/${userId}/role`, 
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success('User role updated successfully');
+      toast.success(`User role updated to ${newRole} successfully`);
       fetchUsers();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update role');
+    } finally {
+      setUpdatingRole(false);
     }
   };
 
@@ -100,12 +115,19 @@ const ManageUsers = () => {
     return badges[role] || 'bg-gray-100 text-gray-700';
   };
 
+  // Fixed filtering logic
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    // Search filter
+    const matchesSearch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Role filter
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesAdminFilter = showAdmins || user.role !== 'admin';
-    return matchesSearch && matchesRole && matchesAdminFilter;
+    
+    // Hide Admins filter - FIXED: Only hide users with role 'admin'
+    const matchesHideAdmins = hideAdmins ? user.role !== 'admin' : true;
+    
+    return matchesSearch && matchesRole && matchesHideAdmins;
   });
 
   if (loading) {
@@ -147,8 +169,8 @@ const ManageUsers = () => {
             <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
-                checked={showAdmins}
-                onChange={(e) => setShowAdmins(e.target.checked)}
+                checked={hideAdmins}
+                onChange={(e) => setHideAdmins(e.target.checked)}
                 className="w-4 h-4 text-blue-600 rounded"
               />
               <span className="text-sm text-gray-700">Hide Admin Users</span>
@@ -177,7 +199,12 @@ const ManageUsers = () => {
                     animate={{ opacity: 1 }}
                     className="border-t hover:bg-gray-50"
                   >
-                    <td className="p-3 text-sm font-medium text-gray-800">{user.name}</td>
+                    <td className="p-3 text-sm font-medium text-gray-800">
+                      {user.name}
+                      {user._id === currentAdminId && (
+                        <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1 py-0.5 rounded">(You)</span>
+                      )}
+                    </td>
                     <td className="p-3 text-sm text-gray-600">{user.email}</td>
                     <td className="p-3 text-sm text-gray-600">{user.phone || 'N/A'}</td>
                     <td className="p-3">
@@ -185,12 +212,15 @@ const ManageUsers = () => {
                         value={user.role}
                         onChange={(e) => handleUpdateRole(user._id, e.target.value)}
                         className={`px-2 py-1 rounded-full text-xs font-medium border-none focus:ring-2 focus:ring-blue-500 ${getRoleBadge(user.role)}`}
-                        disabled={user.role === 'admin'}
+                        disabled={user._id === currentAdminId || updatingRole}
                       >
                         <option value="user">User</option>
                         <option value="owner">Owner</option>
                         <option value="admin">Admin</option>
                       </select>
+                      {user._id === currentAdminId && (
+                        <div className="text-xs text-gray-400 mt-1">Cannot change own role</div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
