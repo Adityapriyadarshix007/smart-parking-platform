@@ -238,7 +238,9 @@ const getPendingListings = async (req, res) => {
   }
 };
 
-module.exports = { 
+module.exports = {
+  getAllBookings,
+  updateBookingStatus, 
   getAllUsers, 
   getDashboardStats, 
   getAllParkingSlots,
@@ -249,4 +251,46 @@ module.exports = {
   updateUserRole,  // ✅ Added to exports
   verifyListing,
   getPendingListings
+};
+// Get all bookings (admin)
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('userId', 'name email phone')
+      .populate('slotId', 'title location pricing')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json({ success: true, data: bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Update booking status (admin)
+const updateBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    
+    booking.status = status;
+    await booking.save();
+    
+    // If cancelling, increase available slots
+    if (status === 'cancelled') {
+      const slot = await ParkingSlot.findById(booking.slotId);
+      if (slot) {
+        slot.availableSlots += 1;
+        await slot.save();
+      }
+    }
+    
+    res.status(200).json({ success: true, data: booking, message: 'Booking status updated' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
