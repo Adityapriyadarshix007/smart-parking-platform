@@ -166,13 +166,12 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// ✅ NEW: Update user role (admin)
+// Update user role (admin)
 const updateUserRole = async (req, res) => {
   try {
     const { userId } = req.params;
     const { role } = req.body;
     
-    // Validate role
     const validRoles = ['user', 'owner', 'admin'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ 
@@ -186,7 +185,6 @@ const updateUserRole = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    // Prevent removing last admin
     if (user.role === 'admin' && role !== 'admin') {
       const adminCount = await User.countDocuments({ role: 'admin' });
       if (adminCount === 1) {
@@ -238,20 +236,6 @@ const getPendingListings = async (req, res) => {
   }
 };
 
-module.exports = {
-  getAllBookings,
-  updateBookingStatus, 
-  getAllUsers, 
-  getDashboardStats, 
-  getAllParkingSlots,
-  updateParkingSlot,
-  deleteParkingSlot,
-  toggleParkingSlotStatus,
-  deleteUser,
-  updateUserRole,  // ✅ Added to exports
-  verifyListing,
-  getPendingListings
-};
 // Get all bookings (admin)
 const getAllBookings = async (req, res) => {
   try {
@@ -280,7 +264,6 @@ const updateBookingStatus = async (req, res) => {
     booking.status = status;
     await booking.save();
     
-    // If cancelling, increase available slots
     if (status === 'cancelled') {
       const slot = await ParkingSlot.findById(booking.slotId);
       if (slot) {
@@ -293,4 +276,19 @@ const updateBookingStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+module.exports = { 
+  getAllUsers, 
+  getDashboardStats, 
+  getAllParkingSlots,
+  updateParkingSlot,
+  deleteParkingSlot,
+  toggleParkingSlotStatus,
+  deleteUser,
+  updateUserRole,
+  verifyListing,
+  getPendingListings,
+  getAllBookings,
+  updateBookingStatus
 };

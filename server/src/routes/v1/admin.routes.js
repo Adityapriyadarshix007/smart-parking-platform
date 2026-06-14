@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { protect, authorize } = require('../../middleware/authMiddleware');
 const { 
-  getAllBookings,
-  updateBookingStatus,protect, authorize } = require('../../middleware/authMiddleware');
-const { 
-  getAllBookings,
-  updateBookingStatus,
   getAllUsers, 
   getDashboardStats, 
   getAllParkingSlots,
@@ -13,9 +9,11 @@ const {
   deleteParkingSlot,
   toggleParkingSlotStatus,
   deleteUser,
-  updateUserRole,  // ✅ ADD THIS - Import the new function
+  updateUserRole,
   verifyListing,
-  getPendingListings
+  getPendingListings,
+  getAllBookings,
+  updateBookingStatus
 } = require('../../controllers/adminController');
 
 // All routes require authentication and admin role
@@ -25,7 +23,7 @@ router.use(authorize('admin'));
 // User management
 router.get('/users', getAllUsers);
 router.delete('/users/:id', deleteUser);
-router.put('/users/:userId/role', updateUserRole);  // ✅ ADD THIS - Update user role endpoint
+router.put('/users/:userId/role', updateUserRole);
 
 // Dashboard stats
 router.get('/stats', getDashboardStats);
@@ -39,5 +37,9 @@ router.put('/parking/:id/toggle-status', toggleParkingSlotStatus);
 // Listing management
 router.get('/pending-listings', getPendingListings);
 router.put('/listings/:id/verify', verifyListing);
+
+// Booking management (Admin)
+router.get('/bookings', getAllBookings);
+router.put('/bookings/:id/status', updateBookingStatus);
 
 module.exports = router;
