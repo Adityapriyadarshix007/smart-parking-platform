@@ -3,30 +3,40 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
 import axios from 'axios';
-import io from 'socket.io-client';
 
 const Header = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [socket, setSocket] = useState(null);
 
   const API_URL = process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
 
   // Fetch unread message count from server
   const fetchUnreadCount = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found');
+        return;
+      }
+      
       console.log('Fetching unread count for user:', user.email);
       
       const response = await axios.get(`${API_URL}/api/v1/messages/my-messages`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       const messages = response.data.data || [];
+      
       // Count unread messages where admin has replied and user hasn't read
       const unread = messages.filter(msg => msg.status === 'replied' && msg.userRead === false).length;
       
@@ -34,41 +44,25 @@ const Header = () => {
       setUnreadMessageCount(unread);
       localStorage.setItem('unreadMessageCount', unread);
       
-      // Also dispatch event for any other components
+      // Dispatch event for other components
       window.dispatchEvent(new CustomEvent('unreadCountUpdate', { detail: { count: unread } }));
       
     } catch (error) {
-      console.error('Error fetching unread count:', error.response?.data || error.message);
+      console.error('Error fetching unread count:', error.response?.status, error.response?.data?.message);
+      if (error.response?.status === 401) {
+        console.log('Token expired or invalid, clearing storage');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
   };
 
-  // Setup WebSocket for real-time notifications
+  // Poll for new messages every 10 seconds
   useEffect(() => {
     if (user) {
-      // Initial fetch
       fetchUnreadCount();
-      
-      // Connect to Socket.io for real-time updates
-      const newSocket = io(API_URL);
-      setSocket(newSocket);
-      
-      // Join user's room for private messages
-      newSocket.emit('join-user', user.id);
-      
-      // Listen for new message replies
-      newSocket.on('new-message-reply', (data) => {
-        console.log('Received new message reply:', data);
-        // Immediately fetch updated count
-        fetchUnreadCount();
-      });
-      
-      // Poll every 10 seconds as fallback
       const interval = setInterval(fetchUnreadCount, 10000);
-      
-      return () => {
-        clearInterval(interval);
-        if (newSocket) newSocket.close();
-      };
+      return () => clearInterval(interval);
     }
   }, [user]);
 
@@ -84,7 +78,7 @@ const Header = () => {
     
     window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
     
-    // Also check localStorage on mount
+    // Check localStorage on mount
     const storedCount = localStorage.getItem('unreadMessageCount');
     if (storedCount && !isNaN(parseInt(storedCount))) {
       setUnreadMessageCount(parseInt(storedCount));
