@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalOwners: 0,
@@ -67,6 +68,10 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCardClick = (status) => {
+    navigate(`/admin/bookings?status=${status}`);
   };
 
   const handleRoleChange = async (userId, newRole) => {
@@ -189,11 +194,13 @@ const AdminDashboard = () => {
           </Link>
         </div>
 
-        {/* Booking Status Breakdown - 3 columns */}
+        {/* Booking Status Breakdown - CLICKABLE CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mb-6 md:mb-8">
+          {/* Confirmed Bookings Card - Clickable */}
           <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-green-200 shadow-sm"
+            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+            onClick={() => handleCardClick('confirmed')}
+            className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-green-200 shadow-sm transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-green-500 p-2 rounded-full">
@@ -205,11 +212,14 @@ const AdminDashboard = () => {
             <div className="text-2xl md:text-3xl font-bold text-green-600">{stats.confirmedBookings}</div>
             <div className="text-sm font-semibold text-gray-700">Confirmed Bookings</div>
             <div className="text-xs text-gray-500">Successfully completed & paid</div>
+            <div className="mt-2 text-xs text-green-600">Click to view all →</div>
           </motion.div>
 
+          {/* Pending Bookings Card - Clickable */}
           <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-yellow-200 shadow-sm"
+            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+            onClick={() => handleCardClick('pending')}
+            className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-yellow-200 shadow-sm transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-yellow-500 p-2 rounded-full">
@@ -221,11 +231,14 @@ const AdminDashboard = () => {
             <div className="text-2xl md:text-3xl font-bold text-yellow-600">{stats.pendingBookings}</div>
             <div className="text-sm font-semibold text-gray-700">Pending Bookings</div>
             <div className="text-xs text-gray-500">Awaiting confirmation</div>
+            <div className="mt-2 text-xs text-yellow-600">Click to view all →</div>
           </motion.div>
 
+          {/* Cancelled Bookings Card - Clickable */}
           <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-red-200 shadow-sm"
+            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+            onClick={() => handleCardClick('cancelled')}
+            className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-red-200 shadow-sm transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-red-500 p-2 rounded-full">
@@ -237,6 +250,7 @@ const AdminDashboard = () => {
             <div className="text-2xl md:text-3xl font-bold text-red-600">{stats.cancelledBookings}</div>
             <div className="text-sm font-semibold text-gray-700">Cancelled Bookings</div>
             <div className="text-xs text-gray-500">Refunded / Rejected</div>
+            <div className="mt-2 text-xs text-red-600">Click to view all →</div>
           </motion.div>
         </div>
 
