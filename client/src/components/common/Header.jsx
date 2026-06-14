@@ -100,11 +100,22 @@ const Header = () => {
         console.log('Socket connection error:', error);
       });
       
-      // Poll every 10 seconds as fallback
-      const interval = setInterval(() => fetchUnreadCount(), 10000);
+      // Poll every 3 SECONDS for instant notification (reduced from 10 seconds)
+      const interval = setInterval(() => fetchUnreadCount(), 3000);
+      
+      // Also fetch when page becomes visible (user returns to tab)
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('📱 Page became visible, fetching unread count...');
+          fetchUnreadCount();
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
       
       return () => {
         clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
         if (newSocket) {
           newSocket.disconnect();
           newSocket.close();
