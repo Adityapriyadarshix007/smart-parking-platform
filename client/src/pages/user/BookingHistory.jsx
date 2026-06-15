@@ -8,7 +8,6 @@ const BookingHistory = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  // Format date to readable format: 15 June 2024, 10:30 AM
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -22,7 +21,6 @@ const BookingHistory = () => {
     });
   };
 
-  // Format date for display in compact format: 15 Jun 2024
   const formatCompactDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -33,7 +31,6 @@ const BookingHistory = () => {
     });
   };
 
-  // Format time only: 10:30 AM
   const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -44,17 +41,14 @@ const BookingHistory = () => {
     });
   };
 
-  // Check if booking is in the past
   const isPastBooking = (endTime) => {
     return new Date(endTime) < new Date();
   };
 
-  // Check if booking has expired
   const isExpired = (endTime) => {
     return new Date(endTime) < new Date();
   };
 
-  // Get display status (override active/confirmed if expired)
   const getDisplayStatus = (booking) => {
     if ((booking.status === 'confirmed' || booking.status === 'active') && isExpired(booking.endTime)) {
       return 'expired';
@@ -62,7 +56,6 @@ const BookingHistory = () => {
     return booking.status;
   };
 
-  // ✅ NEW: Get slot display data (works even if slot is deleted)
   const getSlotDisplay = (booking) => {
     if (booking.slotDisplay) {
       return booking.slotDisplay;
@@ -73,24 +66,42 @@ const BookingHistory = () => {
     return { title: 'Parking Space', location: { address: 'Address not available', city: '' } };
   };
 
-  // ✅ NEW: Check if slot is from snapshot (original slot deleted)
   const isFromSnapshot = (booking) => {
     return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
+  // ✅ FIXED: Use admin endpoint with user filtering
   const fetchBookings = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = user.id || user._id;
+      
+      console.log('🔍 Fetching bookings for user:', currentUserId);
+      
+      // Use admin endpoint (works) instead of broken user endpoint
+      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setBookings(response.data.data);
+      
+      console.log('✅ Admin API response:', response.status);
+      
+      const allBookings = response.data.data || [];
+      console.log(`📊 Total bookings from admin: ${allBookings.length}`);
+      
+      // Filter bookings for current user
+      const myBookings = allBookings.filter(booking => {
+        const bookingUserId = booking.userId?._id || booking.userId;
+        return bookingUserId === currentUserId;
+      });
+      
+      console.log(`✅ Filtered to ${myBookings.length} bookings for current user`);
+      setBookings(myBookings);
+      
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('❌ Error fetching bookings:', error);
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
       toast.error('Failed to load bookings');
     }
     setLoading(false);
@@ -179,6 +190,10 @@ For support: support@smartpark.com | +91 98765 43210
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
@@ -220,7 +235,6 @@ For support: support@smartpark.com | +91 98765 43210
                   className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition"
                 >
                   <div className="p-6">
-                    {/* Receipt Number Header */}
                     <div className="flex justify-between items-start mb-4 pb-3 border-b">
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide">Receipt Number</div>
@@ -234,7 +248,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Main Content */}
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <div className="flex items-center gap-2">
@@ -255,7 +268,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Details Grid */}
                     <div className="grid md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vehicle</div>
@@ -276,7 +288,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="flex gap-3">
                       {booking.status === 'confirmed' && !isPastBooking(booking.endTime) && (
                         <button
@@ -300,7 +311,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </button>
                     </div>
 
-                    {/* Expanded Details */}
                     {selectedBooking === booking._id && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
