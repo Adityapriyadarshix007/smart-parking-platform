@@ -42,10 +42,10 @@ const AdminDashboard = () => {
       
       const data = response.data.data;
       
-      // Calculate booking statistics properly from backend data
-      const confirmed = data.confirmedBookings || (data.totalBookings ? Math.floor(data.totalBookings * 0.6) : 0);
-      const cancelled = data.cancelledBookings || (data.totalBookings ? Math.floor(data.totalBookings * 0.1) : 0);
-      const pending = data.pendingBookings || (data.totalBookings ? Math.floor(data.totalBookings * 0.3) : 0);
+      // Get actual counts from backend (no hardcoded fallback)
+      const confirmed = data.confirmedBookings || 0;
+      const cancelled = data.cancelledBookings || 0;
+      const pending = data.pendingBookings || 0;
       
       setStats({
         totalUsers: data.totalUsers || 0,
@@ -86,14 +86,12 @@ const AdminDashboard = () => {
       
       if (response.data.success) {
         toast.success(`User role updated to ${newRole} successfully`);
-        // Refresh the user list
         fetchDashboardData();
         setEditingUser(null);
       } else {
         toast.error(response.data.message || 'Failed to update role');
       }
     } catch (error) {
-      console.error('Error updating role:', error);
       toast.error(error.response?.data?.message || 'Failed to update user role');
     } finally {
       setUpdatingRole(false);
@@ -141,8 +139,8 @@ const AdminDashboard = () => {
             </motion.div>
           </Link>
           
-          {/* Parking Slots - Redirects to /admin/slots */}
-          <Link to="/admin/slots">
+          {/* Parking Slots - Redirects to HTML page */}
+          <a href="/admin-parking-slots.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -151,10 +149,10 @@ const AdminDashboard = () => {
               <div className="text-xs text-gray-500">Parking Slots</div>
               <div className="text-xs text-gray-400 hidden sm:block">Across India</div>
             </motion.div>
-          </Link>
+          </a>
           
-          {/* Total Bookings - Redirects to /admin/all-bookings */}
-          <Link to="/admin/all-bookings">
+          {/* Total Bookings - Redirects to HTML page */}
+          <a href="/admin-all-bookings.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -163,10 +161,10 @@ const AdminDashboard = () => {
               <div className="text-xs text-gray-500">Total Bookings</div>
               <div className="text-xs text-gray-400 hidden sm:block">All time</div>
             </motion.div>
-          </Link>
+          </a>
           
-          {/* Total Revenue - Redirects to /admin/revenue */}
-          <Link to="/admin/revenue">
+          {/* Total Revenue - Redirects to HTML page */}
+          <a href="/admin-revenue.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -175,7 +173,7 @@ const AdminDashboard = () => {
               <div className="text-xs text-gray-500">Total Revenue</div>
               <div className="text-xs text-gray-400 hidden sm:block">Platform earnings</div>
             </motion.div>
-          </Link>
+          </a>
           
           <Link to="/admin/listings">
             <motion.div 
@@ -208,11 +206,9 @@ const AdminDashboard = () => {
 
         {/* Booking Status Breakdown - CLICKABLE CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mb-6 md:mb-8">
-          {/* Confirmed Bookings Card - Clickable */}
-          <motion.div 
-            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+          <div 
             onClick={() => handleCardClick('confirmed')}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-green-200 shadow-sm transition-all"
+            className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-green-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-green-500 p-2 rounded-full">
@@ -225,13 +221,11 @@ const AdminDashboard = () => {
             <div className="text-sm font-semibold text-gray-700">Confirmed Bookings</div>
             <div className="text-xs text-gray-500">Successfully completed & paid</div>
             <div className="mt-2 text-xs text-green-600">Click to view all →</div>
-          </motion.div>
+          </div>
 
-          {/* Pending Bookings Card - Clickable */}
-          <motion.div 
-            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+          <div 
             onClick={() => handleCardClick('pending')}
-            className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-yellow-200 shadow-sm transition-all"
+            className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-yellow-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-yellow-500 p-2 rounded-full">
@@ -244,13 +238,11 @@ const AdminDashboard = () => {
             <div className="text-sm font-semibold text-gray-700">Pending Bookings</div>
             <div className="text-xs text-gray-500">Awaiting confirmation</div>
             <div className="mt-2 text-xs text-yellow-600">Click to view all →</div>
-          </motion.div>
+          </div>
 
-          {/* Cancelled Bookings Card - Clickable */}
-          <motion.div 
-            whileHover={{ scale: 1.02, cursor: 'pointer' }}
+          <div 
             onClick={() => handleCardClick('cancelled')}
-            className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-red-200 shadow-sm transition-all"
+            className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-red-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
           >
             <div className="flex items-center justify-center mb-2">
               <div className="bg-red-500 p-2 rounded-full">
@@ -263,44 +255,40 @@ const AdminDashboard = () => {
             <div className="text-sm font-semibold text-gray-700">Cancelled Bookings</div>
             <div className="text-xs text-gray-500">Refunded / Rejected</div>
             <div className="mt-2 text-xs text-red-600">Click to view all →</div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3 md:gap-6 mb-6 md:mb-8">
           <Link to="/admin/users">
-            <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">👥</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Users</div>
-              <div className="text-xs text-gray-500 mt-1 hidden md:block">View, edit, delete users, change roles</div>
-            </motion.div>
+            </div>
           </Link>
           <Link to="/admin/messages">
-            <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">💬</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Customer Messages</div>
-              <div className="text-xs text-gray-500 mt-1 hidden md:block">Respond to customer inquiries</div>
-            </motion.div>
+            </div>
           </Link>
           <Link to="/admin/listings">
-            <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">🅿️</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Verify Listings</div>
-              <div className="text-xs text-gray-500 mt-1 hidden md:block">Approve or reject parking slots</div>
-            </motion.div>
+            </div>
           </Link>
-          <Link to="/admin/slots">
-            <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
+          <a href="/admin-parking-slots.html">
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">📍</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Parking</div>
-              <div className="text-xs text-gray-500 mt-1 hidden md:block">View all parking regions, edit, delete</div>
-            </motion.div>
-          </Link>
+            </div>
+          </a>
         </div>
 
-        {/* Recent Activity Section - 2 columns on desktop */}
+        {/* Recent Activity Section */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Recent Users with Role Edit */}
+          {/* Recent Users */}
           <div className="bg-white rounded-xl shadow-md p-5 md:p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Users</h2>
@@ -308,63 +296,31 @@ const AdminDashboard = () => {
             </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {recentUsers.slice(0, 5).map((user) => (
-                <div key={user._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 md:p-3 bg-gray-50 rounded-lg gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-800 text-sm md:text-base truncate">{user.name}</div>
-                    <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                <div key={user._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-800">{user.name}</div>
+                    <div className="text-xs text-gray-500">{user.email}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     {editingUser && editingUser._id === user._id ? (
                       <div className="flex items-center gap-2">
-                        <select
-                          value={selectedRole}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="px-2 py-1 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          disabled={updatingRole}
-                        >
+                        <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="px-2 py-1 text-xs border rounded-lg">
                           <option value="user">User</option>
                           <option value="owner">Owner</option>
                           <option value="admin">Admin</option>
                         </select>
-                        <button
-                          onClick={() => handleRoleChange(user._id, selectedRole)}
-                          disabled={updatingRole}
-                          className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        >
-                          {updatingRole ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          onClick={closeRoleEditor}
-                          className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
-                        >
-                          Cancel
-                        </button>
+                        <button onClick={() => handleRoleChange(user._id, selectedRole)} className="px-2 py-1 text-xs bg-green-500 text-white rounded">Save</button>
+                        <button onClick={closeRoleEditor} className="px-2 py-1 text-xs bg-gray-500 text-white rounded">Cancel</button>
                       </div>
                     ) : (
                       <>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                          user.role === 'owner' ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {user.role}
-                        </span>
-                        <button
-                          onClick={() => openRoleEditor(user)}
-                          className="text-blue-600 hover:text-blue-800 text-xs"
-                          title="Edit Role"
-                        >
-                          ✏️
-                        </button>
+                        <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'owner' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{user.role}</span>
+                        <button onClick={() => openRoleEditor(user)} className="text-blue-600 text-xs">✏️</button>
                       </>
                     )}
-                    <span className="text-xs text-gray-400 hidden sm:inline">{new Date(user.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))}
-              {recentUsers.length === 0 && (
-                <div className="text-center py-8 text-gray-500">No users found</div>
-              )}
             </div>
           </div>
 
@@ -377,26 +333,16 @@ const AdminDashboard = () => {
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {recentBookings.slice(0, 5).map((booking) => (
                 <div key={booking._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-800 text-sm md:text-base truncate">{booking.slotId?.title || 'Parking Slot'}</div>
-                    <div className="text-xs text-gray-500 truncate">{booking.userId?.name || 'Unknown User'}</div>
-                    <div className="text-xs text-gray-400">{new Date(booking.createdAt).toLocaleDateString()}</div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-800">{booking.slotId?.title || 'Parking Slot'}</div>
+                    <div className="text-xs text-gray-500">{booking.userId?.name || 'Unknown'}</div>
                   </div>
-                  <div className="text-right ml-2">
-                    <div className="font-semibold text-green-600 text-sm md:text-base">₹{booking.totalPrice}</div>
-                    <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {booking.status}
-                    </span>
+                  <div className="text-right">
+                    <div className="font-semibold text-green-600">₹{booking.totalPrice}</div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{booking.status}</span>
                   </div>
                 </div>
               ))}
-              {recentBookings.length === 0 && (
-                <div className="text-center py-8 text-gray-500">No bookings found</div>
-              )}
             </div>
           </div>
         </div>
