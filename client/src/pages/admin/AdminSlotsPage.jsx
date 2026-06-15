@@ -76,7 +76,7 @@ const AdminSlotsPage = () => {
                     <td className="p-3">{slot.location?.city || 'N/A'}</td>
                     <td className="p-3">{slot.totalSlots || 0}</td>
                     <td className="p-3">{slot.availableSlots || 0}</td>
-                    <td className="p-3">₹{slot.pricing?.hourly || 0}/hr</td
+                    <td className="p-3">₹{slot.pricing?.hourly || 0}/hr</td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs ${slot.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {slot.isActive ? 'Active' : 'Inactive'}
