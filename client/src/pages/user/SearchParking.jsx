@@ -46,6 +46,10 @@ const SearchParking = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const addressSearchRef = useRef(null);
   const navigate = useNavigate();
+  
+  // Debounce timer refs
+  const radiusDebounceRef = useRef(null);
+  const vehicleTypeDebounceRef = useRef(null);
 
   const defaultLocation = { lat: 20.5937, lng: 78.9629 }; // Center of India
 
@@ -219,21 +223,41 @@ const SearchParking = () => {
     setLoading(false);
   };
 
-  const handleRadiusChange = async (newRadius) => {
+  // ✅ Debounced radius change handler
+  const handleRadiusChange = (newRadius) => {
     setSearchParams(prev => ({ ...prev, radius: newRadius, page: 1 }));
-    if (userLocation && hasSearched) {
-      await searchParking(userLocation.lat, userLocation.lng);
+    
+    // Clear existing timeout
+    if (radiusDebounceRef.current) {
+      clearTimeout(radiusDebounceRef.current);
     }
+    
+    // Set new timeout to search after 500ms
+    radiusDebounceRef.current = setTimeout(() => {
+      if (userLocation && hasSearched) {
+        searchParking(userLocation.lat, userLocation.lng);
+      }
+    }, 500);
   };
 
-  const handleVehicleTypeChange = async (type) => {
+  // ✅ Debounced vehicle type change handler
+  const handleVehicleTypeChange = (type) => {
     setSearchParams(prev => ({ ...prev, vehicleType: type, page: 1 }));
-    if (userLocation && hasSearched) {
-      await searchParking(userLocation.lat, userLocation.lng);
+    
+    // Clear existing timeout
+    if (vehicleTypeDebounceRef.current) {
+      clearTimeout(vehicleTypeDebounceRef.current);
     }
+    
+    // Set new timeout to search after 500ms
+    vehicleTypeDebounceRef.current = setTimeout(() => {
+      if (userLocation && hasSearched) {
+        searchParking(userLocation.lat, userLocation.lng);
+      }
+    }, 500);
   };
 
-  // ✅ Helper function to calculate total price
+  // ✅ Calculate total price helper
   const calculateTotalPrice = (slot, startTime, endTime) => {
     if (!slot || !startTime || !endTime) return 0;
     const start = new Date(startTime);
@@ -357,15 +381,6 @@ const SearchParking = () => {
     // ✅ Calculate total price
     const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
     
-    console.log('📝 Creating booking with data:', {
-      slotId: selectedSlot._id,
-      startTime: bookingDetails.startTime,
-      endTime: bookingDetails.endTime,
-      vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
-      vehicleType: bookingDetails.vehicleType,
-      totalPrice: totalPrice
-    });
-    
     setBookingLoading(true);
     
     try {
@@ -390,7 +405,6 @@ const SearchParking = () => {
       }
     } catch (error) {
       console.error('Booking error:', error);
-      console.error('Error response:', error.response?.data);
       toast.error(error.response?.data?.message || 'Failed to create booking');
     } finally {
       setBookingLoading(false);
@@ -442,6 +456,14 @@ const SearchParking = () => {
   const markerPositions = parkingSlots
     .filter(slot => slot.location && slot.location.coordinates)
     .map(slot => [slot.location.coordinates[1], slot.location.coordinates[0]]);
+
+  // Cleanup debounce timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current);
+      if (vehicleTypeDebounceRef.current) clearTimeout(vehicleTypeDebounceRef.current);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

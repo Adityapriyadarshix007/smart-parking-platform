@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -10,6 +10,11 @@ const MyMessages = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Debounce refs
+  const fetchDebounceRef = useRef(null);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
   // Function to update unread count in localStorage and trigger navbar update
   const updateUnreadCount = useCallback((newUnreadCount) => {
@@ -20,10 +25,30 @@ const MyMessages = () => {
   }, []);
 
   const fetchMessages = useCallback(async (showToast = false) => {
+    // Prevent multiple simultaneous requests
+    if (isFetchingRef.current) {
+      console.log('⏳ Fetch already in progress, skipping...');
+      return;
+    }
+    
+    // Rate limiting: minimum 2 seconds between requests
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 2000) {
+      console.log('⏳ Rate limited, skipping fetch...');
+      if (showToast) {
+        toast.error('Please wait before refreshing');
+      }
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    lastFetchTimeRef.current = now;
+    
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000
       });
       const messageData = response.data.data;
       setMessages(messageData);
@@ -37,13 +62,27 @@ const MyMessages = () => {
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      if (showToast) {
+      if (error.response?.status === 429) {
+        toast.error('Too many requests. Please wait a moment.');
+      } else if (showToast) {
         toast.error('Failed to refresh messages');
       }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      isFetchingRef.current = false;
     }
-    setLoading(false);
-    setRefreshing(false);
   }, [updateUnreadCount]);
+
+  // Debounced version of fetchMessages
+  const debouncedFetchMessages = useCallback(() => {
+    if (fetchDebounceRef.current) {
+      clearTimeout(fetchDebounceRef.current);
+    }
+    fetchDebounceRef.current = setTimeout(() => {
+      fetchMessages();
+    }, 500);
+  }, [fetchMessages]);
 
   // Mark message as read when viewed
   const markMessageAsRead = async (messageId) => {
@@ -98,10 +137,15 @@ const MyMessages = () => {
 
   useEffect(() => {
     fetchMessages();
-    // Auto-refresh every 30 seconds to check for new messages
-    const interval = setInterval(() => fetchMessages(), 10000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
+    // Auto-refresh every 15 seconds with debounce (increased from 10 seconds)
+    const interval = setInterval(() => debouncedFetchMessages(), 15000);
+    return () => {
+      clearInterval(interval);
+      if (fetchDebounceRef.current) {
+        clearTimeout(fetchDebounceRef.current);
+      }
+    };
+  }, [fetchMessages, debouncedFetchMessages]);
 
   // Mark all messages as read when component mounts (user visited the page)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
@@ -11,6 +11,11 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [socket, setSocket] = useState(null);
+  
+  // Debounce timer ref
+  const fetchDebounceRef = useRef(null);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
   // HARDCODED URL - NO VARIABLES, NO DUPLICATE /api/v1
   const HARDCODED_URL = 'https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages';
@@ -22,9 +27,22 @@ const Header = () => {
     return null;
   };
 
-  // Fetch unread message count from server with retry logic
-  const fetchUnreadCount = async (retryCount = 0) => {
+  // Fetch unread message count from server with debouncing and rate limiting
+  const fetchUnreadCount = useCallback(async (retryCount = 0) => {
     if (!user) return;
+    
+    // Prevent multiple simultaneous requests
+    if (isFetchingRef.current) {
+      console.log('⏳ Fetch already in progress, skipping...');
+      return;
+    }
+    
+    // Rate limiting: minimum 2 seconds between requests
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 2000) {
+      console.log('⏳ Rate limited, skipping fetch...');
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -36,11 +54,15 @@ const Header = () => {
         return;
       }
       
+      isFetchingRef.current = true;
+      lastFetchTimeRef.current = now;
+      
       console.log('🔍 Fetching unread count for user:', user.email || user.name);
       console.log('📡 URL:', HARDCODED_URL);
       
       const response = await axios.get(HARDCODED_URL, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
       });
       
       const messages = response.data.data || [];
@@ -56,12 +78,26 @@ const Header = () => {
       
     } catch (error) {
       console.error('❌ Error fetching unread count:', error.response?.status, error.response?.data?.message);
-      if (error.response?.status === 401 && retryCount < 3) {
+      if (error.response?.status === 429) {
+        console.log('Rate limit hit, will retry later');
+      } else if (error.response?.status === 401 && retryCount < 3) {
         console.log('Retrying fetch due to 401...');
         setTimeout(() => fetchUnreadCount(retryCount + 1), 2000);
       }
+    } finally {
+      isFetchingRef.current = false;
     }
-  };
+  }, [user]);
+
+  // Debounced version of fetchUnreadCount
+  const debouncedFetchUnreadCount = useCallback(() => {
+    if (fetchDebounceRef.current) {
+      clearTimeout(fetchDebounceRef.current);
+    }
+    fetchDebounceRef.current = setTimeout(() => {
+      fetchUnreadCount();
+    }, 1000);
+  }, [fetchUnreadCount]);
 
   // Setup WebSocket for real-time notifications
   useEffect(() => {
@@ -100,8 +136,8 @@ const Header = () => {
         console.log('Socket connection error:', error);
       });
       
-      // Poll every 3 SECONDS for instant notification (reduced from 10 seconds)
-      const interval = setInterval(() => fetchUnreadCount(), 3000);
+      // Poll every 5 SECONDS with debounce (increased from 3 seconds)
+      const interval = setInterval(() => debouncedFetchUnreadCount(), 5000);
       
       // Also fetch when page becomes visible (user returns to tab)
       const handleVisibilityChange = () => {
@@ -115,6 +151,9 @@ const Header = () => {
       
       return () => {
         clearInterval(interval);
+        if (fetchDebounceRef.current) {
+          clearTimeout(fetchDebounceRef.current);
+        }
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         if (newSocket) {
           newSocket.disconnect();
@@ -127,7 +166,7 @@ const Header = () => {
     } else {
       console.log('No user logged in');
     }
-  }, [user]);
+  }, [user, fetchUnreadCount, debouncedFetchUnreadCount]);
 
   // Listen for custom event from MyMessages page
   useEffect(() => {
