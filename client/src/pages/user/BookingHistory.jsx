@@ -7,6 +7,7 @@ const BookingHistory = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   
   // Debounce and rate limiting refs
   const fetchInProgress = useRef(false);
@@ -61,57 +62,23 @@ const BookingHistory = () => {
     return booking.status;
   };
 
-  // ✅ IMPROVED: Better slot data extraction with multiple fallback sources
+  // ✅ Get slot display from snapshot or slotId
   const getSlotDisplay = (booking) => {
-    console.log('🔍 Getting slot display for booking:', booking._id);
-    console.log('  - slotId type:', typeof booking.slotId);
-    console.log('  - slotId value:', booking.slotId);
-    console.log('  - slotSnapshot exists:', !!booking.slotSnapshot);
-    console.log('  - slotDisplay exists:', !!booking.slotDisplay);
-    
     // Case 1: slotSnapshot exists (permanent stored data from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
-      console.log('✅ Using slotSnapshot with title:', booking.slotSnapshot.title);
-      console.log('   Address:', booking.slotSnapshot.location?.address);
       return booking.slotSnapshot;
     }
     
     // Case 2: slotId is populated with full slot object
-    if (booking.slotId && typeof booking.slotId === 'object') {
-      if (booking.slotId.title) {
-        console.log('✅ Using populated slotId with title:', booking.slotId.title);
-        console.log('   Address:', booking.slotId.location?.address);
-        return booking.slotId;
-      }
-      if (booking.slotId._id) {
-        console.log('⚠️ slotId object exists but missing title, checking nested structure');
-      }
+    if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
+      return booking.slotId;
     }
     
-    // Case 3: slotDisplay exists (legacy field)
-    if (booking.slotDisplay && booking.slotDisplay.title) {
-      console.log('✅ Using slotDisplay with title:', booking.slotDisplay.title);
-      return booking.slotDisplay;
-    }
-    
-    // Case 4: slotId is a string ID (not populated) - need to fetch from cache or show loading
-    if (booking.slotId && typeof booking.slotId === 'string') {
-      console.log('⚠️ slotId is unpopulated string ID:', booking.slotId);
-      return { 
-        title: 'Loading parking info...', 
-        location: { 
-          address: 'Fetching slot details...', 
-          city: '' 
-        } 
-      };
-    }
-    
-    // Case 5: No data at all
-    console.log('❌ No slot data available for booking');
+    // Case 3: No data - show helpful message
     return { 
-      title: 'Parking Space', 
+      title: '📍 Parking Location', 
       location: { 
-        address: 'Address information not available', 
+        address: 'Location information not available', 
         city: '' 
       } 
     };
@@ -121,7 +88,25 @@ const BookingHistory = () => {
     return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
   };
 
-  // Debounced fetch function with rate limiting
+  // ✅ Get the appropriate endpoint based on user role
+  const getBookingsEndpoint = (role) => {
+    // Admin can see all bookings via admin endpoint
+    if (role === 'admin') {
+      return 'https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings';
+    }
+    // Regular users and owners see only their own bookings
+    return 'https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings';
+  };
+
+  // ✅ Filter bookings for current user (only needed for admin endpoint)
+  const filterBookingsForCurrentUser = (allBookings, currentUserId) => {
+    return allBookings.filter(booking => {
+      const bookingUserId = booking.userId?._id || booking.userId;
+      return bookingUserId === currentUserId;
+    });
+  };
+
+  // ✅ Fetch bookings based on user role
   const fetchBookings = useCallback(async () => {
     // Cancel any ongoing request
     if (abortControllerRef.current) {
@@ -132,7 +117,6 @@ const BookingHistory = () => {
     const now = Date.now();
     if (now - lastFetchTime.current < 2000) {
       console.log('⏳ Rate limited: Please wait before making another request');
-      toast.error('Please wait a moment before refreshing');
       return;
     }
     
@@ -150,43 +134,46 @@ const BookingHistory = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const currentUserId = user.id || user._id;
-      
-      console.log('🔍 Fetching bookings for user:', currentUserId);
-      
-      // Use admin endpoint (works) instead of broken user endpoint
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: abortControllerRef.current.signal,
-        timeout: 15000 // 15 second timeout
-      });
-      
-      console.log('✅ Admin API response:', response.status);
-      
-      const allBookings = response.data.data || [];
-      console.log(`📊 Total bookings from admin: ${allBookings.length}`);
-      
-      // Log first booking structure to debug
-      if (allBookings.length > 0) {
-        console.log('📋 First booking structure:', {
-          id: allBookings[0]._id,
-          hasSlotId: !!allBookings[0].slotId,
-          slotIdType: typeof allBookings[0].slotId,
-          slotIdValue: allBookings[0].slotId,
-          hasSlotSnapshot: !!allBookings[0].slotSnapshot,
-          hasSlotDisplay: !!allBookings[0].slotDisplay,
-          slotSnapshotData: allBookings[0].slotSnapshot
-        });
+      if (!token) {
+        console.log('No token found');
+        setLoading(false);
+        fetchInProgress.current = false;
+        return;
       }
       
-      // Filter bookings for current user
-      const myBookings = allBookings.filter(booking => {
-        const bookingUserId = booking.userId?._id || booking.userId;
-        return bookingUserId === currentUserId;
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = user.id || user._id;
+      const role = user.role || 'user';
+      
+      setUserRole(role);
+      console.log('🔍 Fetching bookings for user:', user.email || user.name);
+      console.log('👤 User role:', role);
+      
+      const endpoint = getBookingsEndpoint(role);
+      console.log('📡 Using endpoint:', endpoint);
+      
+      const response = await axios.get(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: abortControllerRef.current.signal,
+        timeout: 15000
       });
       
-      console.log(`✅ Filtered to ${myBookings.length} bookings for current user`);
+      console.log('✅ API response:', response.status);
+      
+      let myBookings = [];
+      
+      if (role === 'admin') {
+        // Admin gets all bookings, then filter for current user
+        const allBookings = response.data.data || [];
+        console.log(`📊 Total bookings from admin: ${allBookings.length}`);
+        myBookings = filterBookingsForCurrentUser(allBookings, currentUserId);
+        console.log(`✅ Filtered to ${myBookings.length} bookings for current admin`);
+      } else {
+        // Regular users and owners get only their bookings directly
+        myBookings = response.data.data || [];
+        console.log(`📊 Total bookings: ${myBookings.length}`);
+      }
+      
       setBookings(myBookings);
       
     } catch (error) {
@@ -197,13 +184,32 @@ const BookingHistory = () => {
       if (error.code === 'ECONNABORTED') {
         console.error('Request timeout');
         toast.error('Request timed out. Please try again.');
+      } else if (error.response?.status === 403) {
+        console.error('❌ Access denied - Trying alternative endpoint');
+        // Fallback: Try user endpoint if admin fails
+        try {
+          const token = localStorage.getItem('token');
+          const fallbackResponse = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 15000
+          });
+          const myBookings = fallbackResponse.data.data || [];
+          console.log(`✅ Fallback successful: ${myBookings.length} bookings`);
+          setBookings(myBookings);
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
+          toast.error('Unable to load bookings. Please refresh.');
+        }
+      } else if (error.response?.status === 401) {
+        console.error('Authentication error - Please login again');
+        toast.error('Session expired. Please login again.');
+        // Optionally redirect to login
+        // window.location.href = '/login';
       } else if (error.response?.status === 429) {
         console.error('❌ Rate limit exceeded (429)');
-        toast.error('Too many requests. Please wait a few seconds and try again.');
+        toast.error('Too many requests. Please wait a few seconds.');
       } else {
         console.error('❌ Error fetching bookings:', error);
-        console.error('Status:', error.response?.status);
-        console.error('Data:', error.response?.data);
         toast.error('Failed to load bookings');
       }
     } finally {
@@ -222,12 +228,12 @@ const BookingHistory = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Booking cancelled successfully');
-      // Wait a bit before refetching to avoid rate limit
       setTimeout(() => {
         fetchBookings();
       }, 1000);
     } catch (error) {
-      toast.error('Failed to cancel booking');
+      console.error('Cancel error:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel booking');
     }
   };
 
@@ -324,6 +330,9 @@ For support: support@smartpark.com | +91 98765 43210
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">My Bookings</h1>
           <p className="text-gray-600">View and manage all your parking reservations</p>
+          {userRole && (
+            <p className="text-xs text-gray-400 mt-1">Logged in as: {userRole}</p>
+          )}
         </div>
 
         {bookings.length === 0 ? (
@@ -370,16 +379,11 @@ For support: support@smartpark.com | +91 98765 43210
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-xl font-bold text-gray-800 mb-1">
-                            {slotData.title || 'Parking Space'}
+                            {slotData.title || '📍 Parking Location'}
                           </h3>
                           {isSnapshot && (
                             <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                               Archived
-                            </span>
-                          )}
-                          {!slotData.title && !isSnapshot && (
-                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
-                              Loading...
                             </span>
                           )}
                         </div>
@@ -481,11 +485,6 @@ For support: support@smartpark.com | +91 98765 43210
                         {isSnapshot && (
                           <div className="mt-3 p-2 bg-yellow-50 rounded-lg text-xs text-yellow-700">
                             ℹ️ This parking space is no longer available on the platform. This is your booking record.
-                          </div>
-                        )}
-                        {!slotData.title && !isSnapshot && (
-                          <div className="mt-3 p-2 bg-blue-50 rounded-lg text-xs text-blue-700">
-                            ℹ️ Loading parking slot information. Please refresh if this persists.
                           </div>
                         )}
                       </motion.div>
