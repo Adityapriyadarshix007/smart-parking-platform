@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 const BookingHistory = () => {
@@ -8,6 +8,15 @@ const BookingHistory = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  
+  // ✅ State for cancellation dialog
+  const [cancelDialog, setCancelDialog] = useState({
+    isOpen: false,
+    bookingId: null,
+    bookingTitle: '',
+    reason: '',
+    isProcessing: false
+  });
   
   // Debounce and rate limiting refs
   const fetchInProgress = useRef(false);
@@ -62,19 +71,13 @@ const BookingHistory = () => {
     return booking.status;
   };
 
-  // ✅ Get slot display from snapshot or slotId
   const getSlotDisplay = (booking) => {
-    // Case 1: slotSnapshot exists (permanent stored data from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
       return booking.slotSnapshot;
     }
-    
-    // Case 2: slotId is populated with full slot object
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return booking.slotId;
     }
-    
-    // Case 3: No data - show helpful message
     return { 
       title: '📍 Parking Location', 
       location: { 
@@ -88,17 +91,13 @@ const BookingHistory = () => {
     return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
   };
 
-  // ✅ Get the appropriate endpoint based on user role
   const getBookingsEndpoint = (role) => {
-    // Admin can see all bookings via admin endpoint
     if (role === 'admin') {
       return 'https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings';
     }
-    // Regular users and owners see only their own bookings
     return 'https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings';
   };
 
-  // ✅ Filter bookings for current user (only needed for admin endpoint)
   const filterBookingsForCurrentUser = (allBookings, currentUserId) => {
     return allBookings.filter(booking => {
       const bookingUserId = booking.userId?._id || booking.userId;
@@ -106,36 +105,29 @@ const BookingHistory = () => {
     });
   };
 
-  // ✅ Fetch bookings based on user role
   const fetchBookings = useCallback(async () => {
-    // Cancel any ongoing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     
-    // Check rate limiting (minimum 2 seconds between requests)
     const now = Date.now();
     if (now - lastFetchTime.current < 2000) {
-      console.log('⏳ Rate limited: Please wait before making another request');
+      console.log('⏳ Rate limited');
       return;
     }
     
-    // Prevent multiple simultaneous requests
     if (fetchInProgress.current) {
-      console.log('⏳ Fetch already in progress, skipping...');
+      console.log('⏳ Fetch already in progress');
       return;
     }
     
     fetchInProgress.current = true;
     lastFetchTime.current = now;
-    
-    // Create new abort controller
     abortControllerRef.current = new AbortController();
     
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found');
         setLoading(false);
         fetchInProgress.current = false;
         return;
@@ -158,58 +150,36 @@ const BookingHistory = () => {
         timeout: 15000
       });
       
-      console.log('✅ API response:', response.status);
-      
       let myBookings = [];
       
       if (role === 'admin') {
-        // Admin gets all bookings, then filter for current user
         const allBookings = response.data.data || [];
-        console.log(`📊 Total bookings from admin: ${allBookings.length}`);
         myBookings = filterBookingsForCurrentUser(allBookings, currentUserId);
-        console.log(`✅ Filtered to ${myBookings.length} bookings for current admin`);
       } else {
-        // Regular users and owners get only their bookings directly
         myBookings = response.data.data || [];
-        console.log(`📊 Total bookings: ${myBookings.length}`);
       }
       
+      console.log(`✅ Loaded ${myBookings.length} bookings`);
       setBookings(myBookings);
       
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Fetch aborted');
-        return;
-      }
-      if (error.code === 'ECONNABORTED') {
-        console.error('Request timeout');
-        toast.error('Request timed out. Please try again.');
-      } else if (error.response?.status === 403) {
-        console.error('❌ Access denied - Trying alternative endpoint');
-        // Fallback: Try user endpoint if admin fails
+      if (error.name === 'AbortError') return;
+      if (error.response?.status === 403) {
         try {
           const token = localStorage.getItem('token');
           const fallbackResponse = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
             headers: { Authorization: `Bearer ${token}` },
             timeout: 15000
           });
-          const myBookings = fallbackResponse.data.data || [];
-          console.log(`✅ Fallback successful: ${myBookings.length} bookings`);
-          setBookings(myBookings);
+          setBookings(fallbackResponse.data.data || []);
         } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
-          toast.error('Unable to load bookings. Please refresh.');
+          console.error('Fallback failed:', fallbackError);
+          toast.error('Unable to load bookings');
         }
-      } else if (error.response?.status === 401) {
-        console.error('Authentication error - Please login again');
-        toast.error('Session expired. Please login again.');
-        // Optionally redirect to login
-        // window.location.href = '/login';
       } else if (error.response?.status === 429) {
-        console.error('❌ Rate limit exceeded (429)');
-        toast.error('Too many requests. Please wait a few seconds.');
+        toast.error('Too many requests. Please wait.');
       } else {
-        console.error('❌ Error fetching bookings:', error);
+        console.error('Error fetching bookings:', error);
         toast.error('Failed to load bookings');
       }
     } finally {
@@ -219,21 +189,47 @@ const BookingHistory = () => {
     }
   }, []);
 
-  const cancelBooking = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+  // ✅ Open cancellation dialog
+  const openCancelDialog = (booking) => {
+    setCancelDialog({
+      isOpen: true,
+      bookingId: booking._id,
+      bookingTitle: getSlotDisplay(booking).title || 'Parking Slot',
+      reason: '',
+      isProcessing: false
+    });
+  };
+
+  // ✅ Close cancellation dialog
+  const closeCancelDialog = () => {
+    setCancelDialog(prev => ({ ...prev, isOpen: false, reason: '', isProcessing: false }));
+  };
+
+  // ✅ Process cancellation with reason
+  const processCancellation = async () => {
+    if (!cancelDialog.bookingId) return;
+    
+    setCancelDialog(prev => ({ ...prev, isProcessing: true }));
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/${bookingId}/cancel`, {}, {
+      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/${cancelDialog.bookingId}/cancel`, {
+        reason: cancelDialog.reason || 'Cancelled by user'
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('Booking cancelled successfully');
+      
+      toast.success('Booking cancelled successfully!');
+      closeCancelDialog();
+      
       setTimeout(() => {
         fetchBookings();
       }, 1000);
+      
     } catch (error) {
       console.error('Cancel error:', error);
       toast.error(error.response?.data?.message || 'Failed to cancel booking');
+      setCancelDialog(prev => ({ ...prev, isProcessing: false }));
     }
   };
 
@@ -307,8 +303,6 @@ For support: support@smartpark.com | +91 98765 43210
 
   useEffect(() => {
     fetchBookings();
-    
-    // Cleanup function to abort any ongoing request on unmount
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -360,7 +354,6 @@ For support: support@smartpark.com | +91 98765 43210
                   className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
                 >
                   <div className="p-6">
-                    {/* Header with Receipt and Booking IDs */}
                     <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100">
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide">Receipt Number</div>
@@ -374,7 +367,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Main Content - Parking Info and Status */}
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -399,7 +391,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Details Grid - Vehicle, Time, Amount */}
                     <div className="grid md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vehicle</div>
@@ -420,11 +411,10 @@ For support: support@smartpark.com | +91 98765 43210
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="flex gap-3 flex-wrap">
                       {booking.status === 'confirmed' && !isPastBooking(booking.endTime) && (
                         <button
-                          onClick={() => cancelBooking(booking._id)}
+                          onClick={() => openCancelDialog(booking)}
                           className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
                         >
                           Cancel Booking
@@ -444,7 +434,6 @@ For support: support@smartpark.com | +91 98765 43210
                       </button>
                     </div>
 
-                    {/* Expanded Details Section */}
                     {selectedBooking === booking._id && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
@@ -496,6 +485,75 @@ For support: support@smartpark.com | +91 98765 43210
           </div>
         )}
       </div>
+
+      {/* ✅ Cancellation Dialog Modal */}
+      <AnimatePresence>
+        {cancelDialog.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            >
+              <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-5 rounded-t-xl">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <span>⚠️</span> Cancel Booking
+                </h3>
+                <p className="text-sm text-red-100 mt-1">{cancelDialog.bookingTitle}</p>
+              </div>
+              
+              <div className="p-6 space-y-5">
+                <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                  <p className="text-sm text-red-700 font-medium flex items-center gap-2">
+                    <span>❗</span> Are you sure you want to cancel this booking?
+                  </p>
+                  <p className="text-xs text-red-600 mt-2">
+                    This action cannot be undone. Cancelled bookings are non-refundable as per our policy.
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for cancellation (optional)
+                  </label>
+                  <textarea
+                    value={cancelDialog.reason}
+                    onChange={(e) => setCancelDialog(prev => ({ ...prev, reason: e.target.value }))}
+                    rows="3"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Tell us why you're cancelling..."
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={processCancellation}
+                    disabled={cancelDialog.isProcessing}
+                    className="flex-1 bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                  >
+                    {cancelDialog.isProcessing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      'Yes, Cancel Booking'
+                    )}
+                  </button>
+                  <button
+                    onClick={closeCancelDialog}
+                    disabled={cancelDialog.isProcessing}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition font-medium"
+                  >
+                    No, Keep It
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

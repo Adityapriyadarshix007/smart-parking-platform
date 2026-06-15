@@ -324,11 +324,16 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Bookings */}
+          {/* Recent Bookings - ✅ FIXED: Redirects to admin-all-bookings.html */}
           <div className="bg-white rounded-xl shadow-md p-5 md:p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Bookings</h2>
-              <Link to="/admin/bookings" className="text-blue-600 hover:text-blue-700 text-sm">Manage All →</Link>
+              <a 
+                href="/admin-all-bookings.html" 
+                className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+              >
+                Manage All →
+              </a>
             </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {recentBookings.slice(0, 5).map((booking) => (
