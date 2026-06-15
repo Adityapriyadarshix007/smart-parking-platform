@@ -367,7 +367,7 @@ const SearchParking = () => {
     }
   };
 
-  // ✅ FIXED: Update slot count locally after successful booking
+  // ✅ FIXED: Added totalPrice to the booking request
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -419,18 +419,20 @@ const SearchParking = () => {
       return;
     }
     
+    // ✅ Calculate total price
     const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
     
     try {
       const token = localStorage.getItem('token');
       
+      // ✅ FIXED: Added totalPrice field
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
         startTime: bookingDetails.startTime,
         endTime: bookingDetails.endTime,
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
         vehicleType: bookingDetails.vehicleType,
-        totalPrice: totalPrice
+        totalPrice: totalPrice  // ✅ CRITICAL FIX: Added missing totalPrice
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
