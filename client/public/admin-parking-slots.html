@@ -4,120 +4,218 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartPark - Parking Slots Management</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        body { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); min-height: 100vh; }
-        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .card-hover { transition: all 0.3s ease; }
-        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f8fafc; font-weight: 600; color: #1e293b; }
-        tr:hover { background: #f8fafc; }
-        .status-active { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; display: inline-block; }
-        .status-inactive { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; display: inline-block; }
-        .btn-edit { background: #3b82f6; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; border: none; cursor: pointer; transition: all 0.2s; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4fa 0%, #e8eef5 100%);
+            color: #1a2c3e;
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            border-radius: 28px;
+            padding: 1.75rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .header h1 { font-size: 1.85rem; font-weight: 700; color: white; margin-bottom: 0.35rem; }
+        .header p { color: rgba(255, 255, 255, 0.8); }
+        
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 40px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.3); transform: translateX(-2px); }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 24px;
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.3s;
+            border: 1px solid #eef2f8;
+        }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.1); }
+        .stat-number { font-size: 2rem; font-weight: 800; }
+        .stat-label { color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem; }
+        
+        .search-section {
+            background: white;
+            border-radius: 20px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #eef2f8;
+        }
+        
+        .search-wrapper { position: relative; flex: 1; }
+        .search-wrapper i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 60px;
+            font-size: 0.9rem;
+        }
+        .search-input:focus { outline: none; border-color: #3b82f6; }
+        
+        .refresh-btn {
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .refresh-btn:hover { background: #2563eb; }
+        
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid #eef2f8;
+        }
+        
+        .slots-table { width: 100%; border-collapse: collapse; }
+        .slots-table th {
+            text-align: left;
+            padding: 1rem 1.25rem;
+            background: #f8fafd;
+            font-weight: 600;
+            color: #2c4c6c;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        .slots-table td { padding: 1rem 1.25rem; border-bottom: 1px solid #f0f3f8; }
+        .slots-table tr:hover td { background: #fbfdff; }
+        
+        .status-active { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .status-inactive { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        
+        .btn-edit, .btn-toggle {
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            margin: 0 4px;
+        }
+        .btn-edit { background: #3b82f6; color: white; }
         .btn-edit:hover { background: #2563eb; }
-        .btn-delete { background: #ef4444; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; border: none; cursor: pointer; transition: all 0.2s; margin-left: 8px; }
-        .btn-delete:hover { background: #dc2626; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
-        input, select { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; }
-        input:focus, select:focus { outline: none; border-color: #3b82f6; ring: 2px solid #3b82f6; }
+        .btn-toggle { background: #8b5cf6; color: white; }
+        .btn-toggle:hover { background: #7c3aed; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 28px;
+            padding: 1.8rem;
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal-content input, .modal-content select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .flex-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .text-center { text-align: center; }
+        .text-green { color: #10b981; font-weight: 600; }
+        .text-red { color: #ef4444; font-weight: 600; }
+        
+        @media (max-width: 768px) { .container { padding: 1rem; } .slots-table th, .slots-table td { padding: 0.75rem; } }
     </style>
 </head>
 <body>
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl text-white p-6 mb-8 shadow-lg">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-3xl font-bold">Parking Slots Management</h1>
-                    <p class="text-blue-100 mt-1">View, edit, and manage all parking slots across India</p>
-                </div>
-                <a href="/admin-dashboard" class="bg-white/20 hover:bg-white/30 px-5 py-2 rounded-xl transition flex items-center gap-2">← Back to Dashboard</a>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div><h1><i class="fas fa-parking"></i> Parking Slots Management</h1><p>View, edit, and manage all parking slots across India</p></div>
+                <a href="admin-dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
             </div>
         </div>
 
-        <!-- Stats Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-xl shadow-md p-5 text-center card-hover">
-                <div class="text-2xl font-bold text-blue-600" id="totalSlots">0</div>
-                <div class="text-gray-600">Total Slots</div>
-            </div>
-            <div class="bg-white rounded-xl shadow-md p-5 text-center card-hover">
-                <div class="text-2xl font-bold text-green-600" id="activeSlots">0</div>
-                <div class="text-gray-600">Active Slots</div>
-            </div>
-            <div class="bg-white rounded-xl shadow-md p-5 text-center card-hover">
-                <div class="text-2xl font-bold text-red-600" id="inactiveSlots">0</div>
-                <div class="text-gray-600">Inactive Slots</div>
-            </div>
-            <div class="bg-white rounded-xl shadow-md p-5 text-center card-hover">
-                <div class="text-2xl font-bold text-purple-600" id="totalCapacity">0</div>
-                <div class="text-gray-600">Total Capacity</div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-number" id="totalSlots">0</div><div class="stat-label">Total Slots</div></div>
+            <div class="stat-card"><div class="stat-number text-green" id="activeSlots">0</div><div class="stat-label">Active Slots</div></div>
+            <div class="stat-card"><div class="stat-number text-red" id="inactiveSlots">0</div><div class="stat-label">Inactive Slots</div></div>
+            <div class="stat-card"><div class="stat-number" id="totalCapacity">0</div><div class="stat-label">Total Capacity</div></div>
+        </div>
+
+        <div class="search-section">
+            <div class="flex-between">
+                <div class="search-wrapper" style="flex: 1;"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search by parking title or city..." class="search-input"></div>
+                <button onclick="fetchSlots()" class="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
         </div>
 
-        <!-- Search and Actions -->
-        <div class="bg-white rounded-xl shadow-md p-5 mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex-1 relative">
-                    <input type="text" id="searchInput" placeholder="Search by parking title or city..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl">
-                    <div class="absolute left-3 top-3 text-gray-400">🔍</div>
-                </div>
-                <button onclick="fetchSlots()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">🔄 Refresh</button>
-            </div>
-        </div>
-
-        <!-- Slots Table -->
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-            <div id="loadingSpinner" class="py-12 text-center"><div class="spinner"></div><p class="text-gray-500 mt-2">Loading parking slots...</p></div>
+        <div class="table-container">
+            <div id="loadingSpinner" style="text-align: center; padding: 3rem;"><div class="spinner"></div><p>Loading parking slots...</p></div>
             <div id="tableContainer" style="display: none;">
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr>
-                                <th>Title</th><th>City</th><th class="text-center">Total</th><th class="text-center">Available</th><th class="text-center">Hourly Rate</th><th class="text-center">Status</th><th class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="slotsBody"></tbody>
-                    </table>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-between items-center">
-                    <p class="text-sm text-gray-500" id="recordCount"></p>
-                    <p class="text-sm text-gray-500">Use Edit to modify slot details</p>
-                </div>
+                <div style="overflow-x: auto;"><table class="slots-table"><thead><tr><th>Title</th><th>City</th><th class="text-center">Total</th><th class="text-center">Available</th><th class="text-center">Hourly Rate</th><th class="text-center">Status</th><th class="text-center">Actions</th></tr></thead><tbody id="slotsBody"></tbody></table></div>
+                <div class="record-count" style="padding: 1rem; background: #f8fafd; font-size: 0.8rem; color: #6b7280;" id="recordCount"></div>
             </div>
         </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <h2 class="text-xl font-bold mb-4">Edit Parking Slot</h2>
-            <input type="text" id="editTitle" placeholder="Title">
-            <input type="text" id="editCity" placeholder="City">
-            <input type="number" id="editTotalSlots" placeholder="Total Slots">
-            <input type="number" id="editHourlyRate" placeholder="Hourly Rate (₹)">
-            <select id="editStatus">
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-            </select>
-            <div class="flex gap-3 mt-4">
-                <button onclick="saveEdit()" class="flex-1 bg-green-600 text-white py-2 rounded-xl hover:bg-green-700">Save Changes</button>
-                <button onclick="closeModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-xl hover:bg-gray-400">Cancel</button>
-            </div>
-        </div>
-    </div>
+    <div id="editModal" class="modal"><div class="modal-content"><h2 style="margin-bottom: 1rem;"><i class="fas fa-edit"></i> Edit Parking Slot</h2><input type="text" id="editTitle" placeholder="Title"><input type="text" id="editCity" placeholder="City"><input type="number" id="editTotalSlots" placeholder="Total Slots"><input type="number" id="editHourlyRate" placeholder="Hourly Rate (₹)"><select id="editStatus"><option value="true">Active</option><option value="false">Inactive</option></select><div class="flex-between" style="margin-top: 1rem;"><button onclick="saveEdit()" style="flex:1; background: #10b981; color: white; padding: 0.75rem; border: none; border-radius: 12px; margin-right: 0.5rem; cursor: pointer;">Save Changes</button><button onclick="closeModal()" style="flex:1; background: #e5e7eb; padding: 0.75rem; border: none; border-radius: 12px; cursor: pointer;">Cancel</button></div></div></div>
 
     <script>
-        let allSlots = [];
-        let currentEditId = null;
-
+        let allSlots = [], currentEditId = null;
+        
         async function fetchSlots() {
             const token = localStorage.getItem('token');
             if (!token) { window.location.href = '/login'; return; }
@@ -128,94 +226,51 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success && data.data) {
-                    allSlots = data.data;
-                    updateStats();
-                    displaySlots();
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                    document.getElementById('tableContainer').style.display = 'block';
-                }
-            } catch(e) { console.error(e); document.getElementById('loadingSpinner').innerHTML = '<div class="text-red-500 text-center">Error loading slots</div>'; }
+                if (data.success && data.data) { allSlots = data.data; updateStats(); displaySlots(); document.getElementById('loadingSpinner').style.display = 'none'; document.getElementById('tableContainer').style.display = 'block'; }
+            } catch(e) { console.error(e); }
         }
-
+        
         function updateStats() {
             const total = allSlots.length;
             const active = allSlots.filter(s => s.isActive).length;
-            const inactive = total - active;
             const capacity = allSlots.reduce((sum, s) => sum + (s.totalSlots || 0), 0);
             document.getElementById('totalSlots').innerText = total;
             document.getElementById('activeSlots').innerText = active;
-            document.getElementById('inactiveSlots').innerText = inactive;
+            document.getElementById('inactiveSlots').innerText = total - active;
             document.getElementById('totalCapacity').innerText = capacity;
         }
-
+        
         function displaySlots() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const filtered = allSlots.filter(s => s.title?.toLowerCase().includes(search) || s.location?.city?.toLowerCase().includes(search));
             document.getElementById('recordCount').innerHTML = `Showing ${filtered.length} of ${allSlots.length} parking slots`;
-            const tbody = document.getElementById('slotsBody');
-            tbody.innerHTML = '';
+            const tbody = document.getElementById('slotsBody'); tbody.innerHTML = '';
             filtered.forEach(slot => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td class="font-medium">${slot.title || 'N/A'}</td>
-                    <td>${slot.location?.city || 'N/A'}</td>
-                    <td class="text-center font-semibold">${slot.totalSlots || 0}</td>
-                    <td class="text-center ${slot.availableSlots > 0 ? 'text-green-600 font-semibold' : 'text-red-600'}">${slot.availableSlots || 0}</td>
-                    <td class="text-center font-semibold text-green-600">₹${slot.pricing?.hourly || 0}<span class="text-gray-400 text-sm">/hr</span></td>
-                    <td class="text-center"><span class="${slot.isActive ? 'status-active' : 'status-inactive'}">${slot.isActive ? 'Active' : 'Inactive'}</span></td>
-                    <td class="text-center"><button class="btn-edit" onclick="openEditModal('${slot._id}')">✏️ Edit</button><button class="btn-delete" onclick="toggleStatus('${slot._id}', ${slot.isActive})">${slot.isActive ? 'Deactivate' : 'Activate'}</button></td>
-                `;
+                tbody.innerHTML += `<tr><td style="font-weight: 500;">${slot.title || 'N/A'}</td><td>${slot.location?.city || 'N/A'}</td><td class="text-center">${slot.totalSlots || 0}</td><td class="text-center ${slot.availableSlots > 0 ? 'text-green' : 'text-red'}">${slot.availableSlots || 0}</td><td class="text-center text-green">₹${slot.pricing?.hourly || 0}/hr</td><td class="text-center"><span class="${slot.isActive ? 'status-active' : 'status-inactive'}">${slot.isActive ? 'Active' : 'Inactive'}</span></td><td class="text-center"><button class="btn-edit" onclick="openEditModal('${slot._id}')"><i class="fas fa-edit"></i> Edit</button><button class="btn-toggle" onclick="toggleStatus('${slot._id}', ${slot.isActive})">${slot.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>`;
             });
         }
-
-        function openEditModal(id) {
-            const slot = allSlots.find(s => s._id === id);
-            if (slot) {
-                currentEditId = id;
-                document.getElementById('editTitle').value = slot.title || '';
-                document.getElementById('editCity').value = slot.location?.city || '';
-                document.getElementById('editTotalSlots').value = slot.totalSlots || 0;
-                document.getElementById('editHourlyRate').value = slot.pricing?.hourly || 0;
-                document.getElementById('editStatus').value = slot.isActive ? 'true' : 'false';
-                document.getElementById('editModal').style.display = 'flex';
-            }
-        }
-
+        
+        function openEditModal(id) { const slot = allSlots.find(s => s._id === id); if (slot) { currentEditId = id; document.getElementById('editTitle').value = slot.title || ''; document.getElementById('editCity').value = slot.location?.city || ''; document.getElementById('editTotalSlots').value = slot.totalSlots || 0; document.getElementById('editHourlyRate').value = slot.pricing?.hourly || 0; document.getElementById('editStatus').value = slot.isActive ? 'true' : 'false'; document.getElementById('editModal').style.display = 'flex'; } }
+        
         async function saveEdit() {
             const token = localStorage.getItem('token');
-            const updatedData = {
-                title: document.getElementById('editTitle').value,
-                location: { city: document.getElementById('editCity').value },
-                totalSlots: parseInt(document.getElementById('editTotalSlots').value),
-                pricing: { hourly: parseInt(document.getElementById('editHourlyRate').value) },
-                isActive: document.getElementById('editStatus').value === 'true'
-            };
             try {
-                const res = await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${currentEditId}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedData)
+                await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${currentEditId}`, {
+                    method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('editTitle').value, location: { city: document.getElementById('editCity').value }, totalSlots: parseInt(document.getElementById('editTotalSlots').value), pricing: { hourly: parseInt(document.getElementById('editHourlyRate').value) }, isActive: document.getElementById('editStatus').value === 'true' })
                 });
-                if (res.ok) { fetchSlots(); closeModal(); alert('Slot updated successfully!'); }
-                else { alert('Update failed'); }
-            } catch(e) { console.error(e); alert('Error updating slot'); }
+                fetchSlots(); closeModal(); alert('Slot updated successfully!');
+            } catch(e) { alert('Update failed'); }
         }
-
+        
         async function toggleStatus(id, currentStatus) {
             const token = localStorage.getItem('token');
             try {
-                const res = await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${id}/toggle-status`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) { fetchSlots(); }
-                else { alert('Status update failed'); }
-            } catch(e) { console.error(e); }
+                await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${id}/toggle-status`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+                fetchSlots();
+            } catch(e) { alert('Status update failed'); }
         }
-
+        
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
-
         document.getElementById('searchInput').addEventListener('input', displaySlots);
         fetchSlots();
     </script>

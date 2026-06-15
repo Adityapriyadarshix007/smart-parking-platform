@@ -3,42 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartPark - Bookings</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>SmartPark - Filtered Bookings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        body { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); min-height: 100vh; }
-        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .status-confirmed { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
-        .status-pending { background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
-        .status-cancelled { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
-        .btn-action { background: #3b82f6; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; border: none; cursor: pointer; margin: 0 2px; }
-        .btn-action:hover { background: #2563eb; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4fa 0%, #e8eef5 100%);
+            color: #1a2c3e;
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            border-radius: 28px;
+            padding: 1.75rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .header h1 { font-size: 1.85rem; font-weight: 700; color: white; margin-bottom: 0.35rem; }
+        .header p { color: rgba(255, 255, 255, 0.8); font-size: 0.95rem; }
+        
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        .back-btn:hover { background: rgba(255, 255, 255, 0.3); transform: translateX(-2px); }
+        
+        .search-section {
+            background: white;
+            border-radius: 20px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            border: 1px solid #eef2f8;
+        }
+        
+        .search-wrapper { position: relative; flex: 1; }
+        .search-wrapper i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .search-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        
+        .refresh-btn {
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .refresh-btn:hover { background: #2563eb; transform: translateY(-1px); }
+        
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            border: 1px solid #eef2f8;
+        }
+        
+        .bookings-table { width: 100%; border-collapse: collapse; }
+        .bookings-table th {
+            text-align: left;
+            padding: 1rem 1.25rem;
+            background: #f8fafd;
+            font-weight: 600;
+            color: #2c4c6c;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #eef2f8;
+        }
+        .bookings-table td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f0f3f8;
+            color: #1f2f40;
+            font-size: 0.85rem;
+        }
+        .bookings-table tr:hover td { background: #fbfdff; }
+        
+        .status-badge {
+            display: inline-flex;
+            padding: 0.25rem 0.75rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .status-confirmed { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
+        
+        .amount { font-weight: 700; color: #10b981; }
+        
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .record-count { padding: 1rem 1.25rem; background: #f8fafd; font-size: 0.8rem; color: #6b7280; border-top: 1px solid #eef2f8; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .bookings-table th, .bookings-table td { padding: 0.75rem; }
+        }
     </style>
 </head>
 <body>
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl text-white p-6 mb-8 shadow-lg">
-            <div class="flex justify-between items-center">
-                <div><h1 class="text-3xl font-bold" id="pageTitle">Bookings</h1><p class="text-blue-100 mt-1" id="pageSubtitle">View and manage bookings</p></div>
-                <a href="/admin-dashboard" class="bg-white/20 hover:bg-white/30 px-5 py-2 rounded-xl transition">← Back to Dashboard</a>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div><h1 id="pageTitle"><i class="fas fa-filter"></i> Bookings</h1><p id="pageSubtitle">View filtered bookings</p></div>
+                <a href="admin-dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-md p-5 mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex-1 relative"><input type="text" id="searchInput" placeholder="Search by user name or parking slot..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl"><div class="absolute left-3 top-3 text-gray-400">🔍</div></div>
-                <button onclick="fetchBookings()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">🔄 Refresh</button>
+        <div class="search-section">
+            <div class="flex-between">
+                <div class="search-wrapper" style="flex: 1;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by user or parking slot..." class="search-input">
+                </div>
+                <button onclick="fetchBookings()" class="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-            <div id="loadingSpinner" class="py-12 text-center"><div class="spinner"></div><p class="text-gray-500 mt-2">Loading bookings...</p></div>
+        <div class="table-container">
+            <div id="loadingSpinner" style="text-align: center; padding: 3rem;"><div class="spinner"></div><p style="color: #6b7280;">Loading bookings...</p></div>
             <div id="tableContainer" style="display: none;">
-                <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>User</th><th>Parking Slot</th><th>Vehicle</th><th>Date & Time</th><th>Amount</th></tr></thead><tbody id="bookingsBody"></tbody></table></div>
-                <div class="p-4 bg-gray-50 border-t"><p class="text-sm text-gray-500" id="recordCount"></p></div>
+                <div style="overflow-x: auto;"><table class="bookings-table"><thead><tr><th>User</th><th>Parking Slot</th><th>Vehicle</th><th>Date & Time</th><th>Amount</th></tr></thead><tbody id="bookingsBody"></tbody></table></div>
+                <div class="record-count" id="recordCount"></div>
             </div>
         </div>
     </div>
@@ -46,13 +178,14 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status') || 'all';
-        const titles = { confirmed: 'Confirmed Bookings', pending: 'Pending Bookings', cancelled: 'Cancelled Bookings' };
+        const titles = { confirmed: '✅ Confirmed Bookings', pending: '⏳ Pending Bookings', cancelled: '❌ Cancelled Bookings' };
         const subtitles = { confirmed: 'Successfully completed & paid bookings', pending: 'Awaiting confirmation', cancelled: 'Refunded / Rejected bookings' };
-        document.getElementById('pageTitle').innerText = titles[status] || 'Bookings';
-        document.getElementById('pageSubtitle').innerHTML = subtitles[status] || 'All bookings';
+        document.getElementById('pageTitle').innerHTML = titles[status] || 'Bookings';
+        document.getElementById('pageSubtitle').innerHTML = subtitles[status] || 'All filtered bookings';
 
         let allBookings = [];
         function formatDate(d) { return new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+        
         async function fetchBookings() {
             const token = localStorage.getItem('token');
             if (!token) { window.location.href = '/login'; return; }
@@ -63,31 +196,21 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success && data.data) {
-                    allBookings = data.data;
-                    displayBookings();
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                    document.getElementById('tableContainer').style.display = 'block';
-                }
+                if (data.success && data.data) { allBookings = data.data; displayBookings(); document.getElementById('loadingSpinner').style.display = 'none'; document.getElementById('tableContainer').style.display = 'block'; }
             } catch(e) { console.error(e); }
         }
+        
         function displayBookings() {
             const search = document.getElementById('searchInput').value.toLowerCase();
-            let filtered = allBookings;
-            if (status !== 'all') filtered = filtered.filter(b => b.status === status);
+            let filtered = allBookings.filter(b => b.status === status);
             if (search) filtered = filtered.filter(b => b.userId?.name?.toLowerCase().includes(search) || b.slotId?.title?.toLowerCase().includes(search));
-            document.getElementById('recordCount').innerHTML = `Showing ${filtered.length} bookings`;
-            const tbody = document.getElementById('bookingsBody');
-            tbody.innerHTML = '';
+            document.getElementById('recordCount').innerHTML = `Showing ${filtered.length} ${status} bookings`;
+            const tbody = document.getElementById('bookingsBody'); tbody.innerHTML = '';
             filtered.forEach(b => {
-                const row = tbody.insertRow();
-                row.innerHTML = `<td><div class="font-medium">${b.userId?.name || 'N/A'}</div><div class="text-xs text-gray-500">${b.userId?.email || ''}</div></td>
-                    <td><div class="font-medium">${b.slotId?.title || 'N/A'}</div><div class="text-xs text-gray-500">${b.slotId?.location?.city || ''}</div></td>
-                    <td>${b.vehicleNumber}</td>
-                    <td>${formatDate(b.startTime)}<br><span class="text-xs text-gray-400">to ${formatDate(b.endTime)}</span></td>
-                    <td class="font-semibold text-green-600">₹${b.totalPrice}</td>`;
+                tbody.innerHTML += `<tr><td><div style="font-weight: 500;">${b.userId?.name || 'N/A'}</div><div style="font-size: 0.7rem; color: #6b7280;">${b.userId?.email || ''}</div></td><td><div style="font-weight: 500;">${b.slotId?.title || 'N/A'}</div><div style="font-size: 0.7rem; color: #6b7280;">${b.slotId?.location?.city || ''}</div></td><td>${b.vehicleNumber}</td><td>${formatDate(b.startTime)}<br><span style="font-size: 0.7rem; color: #9ca3af;">to ${formatDate(b.endTime)}</span></td><td class="amount">₹${b.totalPrice}</td></tr>`;
             });
         }
+        
         document.getElementById('searchInput').addEventListener('input', displayBookings);
         fetchBookings();
     </script>
