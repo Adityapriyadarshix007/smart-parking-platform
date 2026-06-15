@@ -14,6 +14,9 @@ import BookingHistory from './pages/user/BookingHistory';
 import MyMessages from './pages/user/MyMessages';
 import OwnerDashboard from './pages/owner/OwnerDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminSlotsPage from './pages/admin/AdminSlotsPage';
+import AdminAllBookingsPage from './pages/admin/AdminAllBookingsPage';
+import AdminRevenuePage from './pages/admin/AdminRevenuePage';
 import AdminBookings from './pages/admin/AdminBookings';
 import Profile from './pages/shared/Profile';
 import ManageMessages from './pages/admin/ManageMessages';
@@ -57,6 +60,9 @@ function App() {
               
               {/* Admin Routes */}
               <Route path="/admin-dashboard" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+              <Route path="/admin/slots" element={<PrivateRoute><AdminSlotsPage /></PrivateRoute>} />
+              <Route path="/admin/all-bookings" element={<PrivateRoute><AdminAllBookingsPage /></PrivateRoute>} />
+              <Route path="/admin/revenue" element={<PrivateRoute><AdminRevenuePage /></PrivateRoute>} />
               <Route path="/admin/bookings" element={<PrivateRoute><AdminBookings /></PrivateRoute>} />
               <Route path="/admin/users" element={<PrivateRoute><ManageUsers /></PrivateRoute>} />
               <Route path="/admin/messages" element={<PrivateRoute><ManageMessages /></PrivateRoute>} />

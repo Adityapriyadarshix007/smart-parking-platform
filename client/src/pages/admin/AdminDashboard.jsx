@@ -129,41 +129,53 @@ const AdminDashboard = () => {
 
         {/* Main Stats Cards - Responsive grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center"
-          >
-            <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
-            <div className="text-xs text-gray-500">Total Users</div>
-            <div className="text-xs text-gray-400 hidden sm:block">{stats.totalAdmins} Admins, {stats.totalOwners} Owners</div>
-          </motion.div>
+          {/* Total Users - Redirects to /admin/users */}
+          <Link to="/admin/users">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
+            >
+              <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
+              <div className="text-xs text-gray-500">Total Users</div>
+              <div className="text-xs text-gray-400 hidden sm:block">{stats.totalAdmins} Admins, {stats.totalOwners} Owners</div>
+            </motion.div>
+          </Link>
           
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center"
-          >
-            <div className="text-xl md:text-2xl font-bold text-green-600">{stats.totalSlots}</div>
-            <div className="text-xs text-gray-500">Parking Slots</div>
-            <div className="text-xs text-gray-400 hidden sm:block">Across India</div>
-          </motion.div>
+          {/* Parking Slots - Redirects to /admin/slots */}
+          <Link to="/admin/slots">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
+            >
+              <div className="text-xl md:text-2xl font-bold text-green-600">{stats.totalSlots}</div>
+              <div className="text-xs text-gray-500">Parking Slots</div>
+              <div className="text-xs text-gray-400 hidden sm:block">Across India</div>
+            </motion.div>
+          </Link>
           
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center"
-          >
-            <div className="text-xl md:text-2xl font-bold text-purple-600">{stats.totalBookings}</div>
-            <div className="text-xs text-gray-500">Total Bookings</div>
-            <div className="text-xs text-gray-400 hidden sm:block">All time</div>
-          </motion.div>
+          {/* Total Bookings - Redirects to /admin/all-bookings */}
+          <Link to="/admin/all-bookings">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
+            >
+              <div className="text-xl md:text-2xl font-bold text-purple-600">{stats.totalBookings}</div>
+              <div className="text-xs text-gray-500">Total Bookings</div>
+              <div className="text-xs text-gray-400 hidden sm:block">All time</div>
+            </motion.div>
+          </Link>
           
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center"
-          >
-            <div className="text-xl md:text-2xl font-bold text-orange-600">₹{stats.totalEarnings.toLocaleString()}</div>
-            <div className="text-xs text-gray-500">Total Revenue</div>
-            <div className="text-xs text-gray-400 hidden sm:block">Platform earnings</div>
-          </motion.div>
+          {/* Total Revenue - Redirects to /admin/revenue */}
+          <Link to="/admin/revenue">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
+            >
+              <div className="text-xl md:text-2xl font-bold text-orange-600">₹{stats.totalEarnings.toLocaleString()}</div>
+              <div className="text-xs text-gray-500">Total Revenue</div>
+              <div className="text-xs text-gray-400 hidden sm:block">Platform earnings</div>
+            </motion.div>
+          </Link>
           
           <Link to="/admin/listings">
             <motion.div 
@@ -277,7 +289,7 @@ const AdminDashboard = () => {
               <div className="text-xs text-gray-500 mt-1 hidden md:block">Approve or reject parking slots</div>
             </motion.div>
           </Link>
-          <Link to="/admin/manage-parking">
+          <Link to="/admin/slots">
             <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">📍</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Parking</div>
