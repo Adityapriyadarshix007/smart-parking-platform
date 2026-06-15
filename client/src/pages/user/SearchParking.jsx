@@ -40,8 +40,8 @@ const SearchParking = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
-  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // Center of India
-  const [mapZoom, setMapZoom] = useState(5); // Zoom out to show India
+  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]);
+  const [mapZoom, setMapZoom] = useState(5);
   const [mapReady, setMapReady] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const addressSearchRef = useRef(null);
@@ -50,8 +50,6 @@ const SearchParking = () => {
   // Debounce timer refs
   const radiusDebounceRef = useRef(null);
   const vehicleTypeDebounceRef = useRef(null);
-
-  const defaultLocation = { lat: 20.5937, lng: 78.9629 }; // Center of India
 
   useEffect(() => {
     setMapReady(true);
@@ -223,16 +221,13 @@ const SearchParking = () => {
     setLoading(false);
   };
 
-  // ✅ Debounced radius change handler
   const handleRadiusChange = (newRadius) => {
     setSearchParams(prev => ({ ...prev, radius: newRadius, page: 1 }));
     
-    // Clear existing timeout
     if (radiusDebounceRef.current) {
       clearTimeout(radiusDebounceRef.current);
     }
     
-    // Set new timeout to search after 500ms
     radiusDebounceRef.current = setTimeout(() => {
       if (userLocation && hasSearched) {
         searchParking(userLocation.lat, userLocation.lng);
@@ -240,16 +235,13 @@ const SearchParking = () => {
     }, 500);
   };
 
-  // ✅ Debounced vehicle type change handler
   const handleVehicleTypeChange = (type) => {
     setSearchParams(prev => ({ ...prev, vehicleType: type, page: 1 }));
     
-    // Clear existing timeout
     if (vehicleTypeDebounceRef.current) {
       clearTimeout(vehicleTypeDebounceRef.current);
     }
     
-    // Set new timeout to search after 500ms
     vehicleTypeDebounceRef.current = setTimeout(() => {
       if (userLocation && hasSearched) {
         searchParking(userLocation.lat, userLocation.lng);
@@ -257,7 +249,6 @@ const SearchParking = () => {
     }, 500);
   };
 
-  // ✅ Calculate total price helper
   const calculateTotalPrice = (slot, startTime, endTime) => {
     if (!slot || !startTime || !endTime) return 0;
     const start = new Date(startTime);
@@ -265,6 +256,25 @@ const SearchParking = () => {
     const diffHours = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60)));
     const hourlyRate = slot.pricing?.hourly || 30;
     return diffHours * hourlyRate;
+  };
+
+  // ✅ NEW: Check slot availability before booking
+  const checkAvailability = async (slotId, startTime, endTime) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/check-availability', {
+        slotId,
+        startTime,
+        endTime
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Availability check error:', error);
+      return { available: false, message: 'Could not check availability' };
+    }
   };
 
   const loadRazorpayScript = () => {
@@ -347,7 +357,7 @@ const SearchParking = () => {
     }
   };
 
-  // ✅ FIXED: Added totalPrice to the booking request
+  // ✅ FIXED: Added availability check before booking
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -378,22 +388,41 @@ const SearchParking = () => {
       return;
     }
     
-    // ✅ Calculate total price
-    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
-    
     setBookingLoading(true);
+    
+    // ✅ Check availability first
+    toast.loading('Checking availability...', { id: 'availabilityCheck' });
+    
+    const availability = await checkAvailability(selectedSlot._id, bookingDetails.startTime, bookingDetails.endTime);
+    
+    toast.dismiss('availabilityCheck');
+    
+    if (!availability.available) {
+      toast.error(availability.message || 'This time slot is no longer available. Please choose a different time.');
+      setBookingLoading(false);
+      return;
+    }
+    
+    // Check if there are available spots
+    if (availability.availableSlots !== undefined && availability.availableSlots <= 0) {
+      toast.error('No parking spots available at this location. Please try another location.');
+      setBookingLoading(false);
+      return;
+    }
+    
+    // Calculate total price
+    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
     
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ FIXED: Added totalPrice field
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
         startTime: bookingDetails.startTime,
         endTime: bookingDetails.endTime,
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
         vehicleType: bookingDetails.vehicleType,
-        totalPrice: totalPrice  // ✅ CRITICAL FIX: Added missing totalPrice
+        totalPrice: totalPrice
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -401,11 +430,22 @@ const SearchParking = () => {
       if (response.data.success) {
         const booking = response.data.data;
         setShowBookingModal(false);
+        toast.success('Booking created! Proceeding to payment...');
         await handlePayment(booking);
       }
     } catch (error) {
       console.error('Booking error:', error);
-      toast.error(error.response?.data?.message || 'Failed to create booking');
+      const errorMsg = error.response?.data?.message || 'Failed to create booking';
+      toast.error(errorMsg);
+      
+      // If error is about no available slots, refresh the search results
+      if (errorMsg.toLowerCase().includes('no available') || errorMsg.toLowerCase().includes('already booked')) {
+        if (userLocation) {
+          setTimeout(() => {
+            searchParking(userLocation.lat, userLocation.lng);
+          }, 2000);
+        }
+      }
     } finally {
       setBookingLoading(false);
     }
@@ -457,7 +497,6 @@ const SearchParking = () => {
     .filter(slot => slot.location && slot.location.coordinates)
     .map(slot => [slot.location.coordinates[1], slot.location.coordinates[0]]);
 
-  // Cleanup debounce timeouts on unmount
   useEffect(() => {
     return () => {
       if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current);
@@ -468,7 +507,6 @@ const SearchParking = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* Search Filters */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <div>
@@ -556,9 +594,7 @@ const SearchParking = () => {
           )}
         </div>
 
-        {/* Results Section */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left Panel - Parking List */}
           <div>
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -607,7 +643,7 @@ const SearchParking = () => {
                           <p className="text-gray-600 text-sm">{slot.location?.address}</p>
                           <p className="text-gray-500 text-xs mt-1">{slot.location?.city}, {slot.location?.state}</p>
                           <div className="flex flex-wrap gap-2 mt-3">
-                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-lg text-xs font-medium">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${slot.availableSlots > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                               🅿️ {slot.availableSlots}/{slot.totalSlots} spots
                             </span>
                             <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-medium">
@@ -618,11 +654,20 @@ const SearchParking = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (slot.availableSlots <= 0) {
+                              toast.error('No spots available at this location');
+                              return;
+                            }
                             openBookingModal(slot);
                           }}
-                          className="ml-4 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all text-sm font-medium shadow-md"
+                          disabled={slot.availableSlots <= 0}
+                          className={`ml-4 px-5 py-2 rounded-lg transition-all text-sm font-medium shadow-md ${
+                            slot.availableSlots > 0 
+                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
                         >
-                          Book Now →
+                          {slot.availableSlots > 0 ? 'Book Now →' : 'Full'}
                         </button>
                       </div>
                     </motion.div>
@@ -632,7 +677,6 @@ const SearchParking = () => {
             </div>
           </div>
 
-          {/* Right Panel - Map */}
           <div className="bg-white rounded-xl shadow-lg p-4">
             <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
               <span>🗺️</span> Map View
@@ -648,7 +692,6 @@ const SearchParking = () => {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapController center={mapCenter} zoom={mapZoom} markers={markerPositions} />
                 
-                {/* Parking Slots Markers - Unified */}
                 {parkingSlots.map((slot) => (
                   slot.location && slot.location.coordinates && (
                     <BlinkingMarker 
@@ -671,7 +714,6 @@ const SearchParking = () => {
           </div>
         </div>
 
-        {/* Booking Modal */}
         {showBookingModal && selectedSlot && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div 
@@ -688,6 +730,7 @@ const SearchParking = () => {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-sm text-gray-600">📍 {selectedSlot.location?.address}</p>
                   <p className="text-sm text-gray-600 mt-2">💰 ₹{selectedSlot.pricing?.hourly} per hour</p>
+                  <p className="text-sm text-gray-600 mt-1">🅿️ Available: {selectedSlot.availableSlots}/{selectedSlot.totalSlots} spots</p>
                 </div>
                 
                 <div>
@@ -764,7 +807,6 @@ const SearchParking = () => {
           </div>
         )}
 
-        {/* Phone Verification Modal */}
         <PhoneVerificationModal
           isOpen={showPhoneModal}
           onClose={() => {
