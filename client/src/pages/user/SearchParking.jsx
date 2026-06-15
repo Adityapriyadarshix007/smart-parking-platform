@@ -221,6 +221,17 @@ const SearchParking = () => {
     setLoading(false);
   };
 
+  // ✅ Function to update a single slot's available count locally
+  const updateSlotAvailability = (slotId, newAvailableCount) => {
+    setParkingSlots(prevSlots => 
+      prevSlots.map(slot => 
+        slot._id === slotId 
+          ? { ...slot, availableSlots: newAvailableCount }
+          : slot
+      )
+    );
+  };
+
   const handleRadiusChange = (newRadius) => {
     setSearchParams(prev => ({ ...prev, radius: newRadius, page: 1 }));
     
@@ -258,7 +269,6 @@ const SearchParking = () => {
     return diffHours * hourlyRate;
   };
 
-  // ✅ NEW: Check slot availability before booking
   const checkAvailability = async (slotId, startTime, endTime) => {
     try {
       const token = localStorage.getItem('token');
@@ -357,7 +367,7 @@ const SearchParking = () => {
     }
   };
 
-  // ✅ FIXED: Added availability check before booking
+  // ✅ FIXED: Update slot count locally after successful booking
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -390,7 +400,7 @@ const SearchParking = () => {
     
     setBookingLoading(true);
     
-    // ✅ Check availability first
+    // Check availability first
     toast.loading('Checking availability...', { id: 'availabilityCheck' });
     
     const availability = await checkAvailability(selectedSlot._id, bookingDetails.startTime, bookingDetails.endTime);
@@ -403,14 +413,12 @@ const SearchParking = () => {
       return;
     }
     
-    // Check if there are available spots
     if (availability.availableSlots !== undefined && availability.availableSlots <= 0) {
       toast.error('No parking spots available at this location. Please try another location.');
       setBookingLoading(false);
       return;
     }
     
-    // Calculate total price
     const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
     
     try {
@@ -429,6 +437,13 @@ const SearchParking = () => {
       
       if (response.data.success) {
         const booking = response.data.data;
+        
+        // ✅ Update the slot's available count locally (decrease by 1)
+        updateSlotAvailability(selectedSlot._id, selectedSlot.availableSlots - 1);
+        
+        // ✅ Also update the selectedSlot state
+        setSelectedSlot(prev => ({ ...prev, availableSlots: prev.availableSlots - 1 }));
+        
         setShowBookingModal(false);
         toast.success('Booking created! Proceeding to payment...');
         await handlePayment(booking);
@@ -470,6 +485,12 @@ const SearchParking = () => {
   };
 
   const openBookingModal = (slot) => {
+    // Check if slot has available spots before opening modal
+    if (slot.availableSlots <= 0) {
+      toast.error('No parking spots available at this location');
+      return;
+    }
+    
     if (!hasPhoneNumber()) {
       setSelectedSlot(slot);
       setShowPhoneModal(true);
