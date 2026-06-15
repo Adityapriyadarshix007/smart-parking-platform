@@ -154,7 +154,7 @@ const AdminDashboard = () => {
           </Link>
           
           {/* Total Bookings - Redirects to /admin/all-bookings */}
-          <Link to="/admin/all-bookings">
+          <Link to="/admin/bookings?status=all">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
