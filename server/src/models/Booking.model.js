@@ -11,7 +11,7 @@ const bookingSchema = new mongoose.Schema({
     ref: 'ParkingSlot',
     required: true
   },
-  // ✅ NEW: Store a snapshot of the parking slot at booking time
+  // ✅ Store a permanent snapshot of the parking slot at booking time
   slotSnapshot: {
     title: { type: String, default: '' },
     location: {
@@ -19,7 +19,11 @@ const bookingSchema = new mongoose.Schema({
       city: { type: String, default: '' },
       state: { type: String, default: '' },
       pincode: { type: String, default: '' },
-      landmark: { type: String, default: '' }
+      landmark: { type: String, default: '' },
+      coordinates: {
+        lat: { type: Number, default: 0 },
+        lng: { type: Number, default: 0 }
+      }
     },
     pricing: {
       hourly: { type: Number, default: 0 },

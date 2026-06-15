@@ -1,32 +1,59 @@
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
+const User = require('../models/User.model');
 
-// Create booking - Saves snapshot of the slot
+// @desc    Create a new booking
+// @route   POST /api/v1/bookings
+// @access  Private
 const createBooking = async (req, res) => {
   try {
-    const { slotId, startTime, endTime, vehicleNumber, vehicleType } = req.body;
-    
+    const {
+      slotId,
+      startTime,
+      endTime,
+      vehicleNumber,
+      vehicleType,
+      totalPrice
+    } = req.body;
+
+    console.log('📝 Creating booking for slot:', slotId);
+    console.log('👤 User ID:', req.user.id);
+
+    // Check if slot exists
     const slot = await ParkingSlot.findById(slotId);
     if (!slot) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Parking slot not found' 
+        message: 'Parking slot not found'
       });
     }
-    
-    if (slot.availableSlots < 1) {
-      return res.status(400).json({ 
+
+    // Check if slot is active
+    if (!slot.isActive) {
+      return res.status(400).json({
         success: false,
-        message: 'No slots available' 
+        message: 'Parking slot is currently inactive'
       });
     }
-    
-    // Calculate price
-    const hours = (new Date(endTime) - new Date(startTime)) / (1000 * 60 * 60);
-    const roundedHours = Math.ceil(hours);
-    const totalPrice = roundedHours * (slot.pricing?.hourly || 30);
-    
-    // ✅ Create snapshot of the slot at booking time
+
+    // Check for overlapping bookings
+    const overlappingBooking = await Booking.findOne({
+      slotId,
+      status: { $in: ['confirmed', 'active'] },
+      $or: [
+        { startTime: { $lt: new Date(endTime), $gte: new Date(startTime) } },
+        { endTime: { $gt: new Date(startTime), $lte: new Date(endTime) } }
+      ]
+    });
+
+    if (overlappingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'This time slot is already booked'
+      });
+    }
+
+    // ✅ Create a permanent snapshot of the slot at booking time
     const slotSnapshot = {
       title: slot.title || 'Parking Space',
       location: {
@@ -34,186 +61,229 @@ const createBooking = async (req, res) => {
         city: slot.location?.city || '',
         state: slot.location?.state || '',
         pincode: slot.location?.pincode || '',
-        landmark: slot.location?.landmark || ''
+        landmark: slot.location?.landmark || '',
+        coordinates: {
+          lat: slot.location?.coordinates?.[1] || 0,
+          lng: slot.location?.coordinates?.[0] || 0
+        }
       },
       pricing: {
         hourly: slot.pricing?.hourly || 0,
         daily: slot.pricing?.daily || 0,
         monthly: slot.pricing?.monthly || 0
       },
-      slotType: slot.slotType || 'open',
-      vehicleTypes: slot.vehicleTypes || [],
+      slotType: slot.slotType || 'standard',
+      vehicleTypes: slot.vehicleTypes || ['2-wheeler', '4-wheeler'],
       isDeleted: false
     };
-    
-    const booking = await Booking.create({
+
+    console.log('✅ Created slot snapshot:', slotSnapshot.title);
+
+    // Create booking with snapshot
+    const booking = new Booking({
       userId: req.user.id,
       slotId,
-      slotSnapshot,  // ✅ Store the snapshot
-      startTime,
-      endTime,
+      slotSnapshot, // ✅ Store permanent snapshot
       vehicleNumber: vehicleNumber.toUpperCase(),
       vehicleType,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
       totalPrice,
-      status: 'pending',
-      paymentStatus: 'pending'
+      status: 'confirmed',
+      paymentStatus: 'paid',
+      paymentId: `PAY_${Date.now()}_${Math.floor(Math.random() * 1000)}`
     });
-    
-    res.status(201).json({ 
-      success: true, 
-      data: booking,
-      receiptNumber: booking.receiptNumber,
-      message: 'Booking created successfully'
+
+    await booking.save();
+    console.log('✅ Booking saved with ID:', booking._id);
+
+    // Populate user and slot info for response
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate('userId', 'name email')
+      .populate('slotId', 'title location pricing');
+
+    res.status(201).json({
+      success: true,
+      data: populatedBooking
     });
+
   } catch (error) {
-    console.error('Booking creation error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Create booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create booking'
     });
   }
 };
 
-// Confirm booking after payment
+// @desc    Confirm booking after payment
+// @route   PUT /api/v1/bookings/confirm
+// @access  Private
 const confirmBooking = async (req, res) => {
   try {
-    const { bookingId } = req.body;
-    
+    const { bookingId, paymentId, orderId } = req.body;
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Booking not found' 
+        message: 'Booking not found'
       });
     }
-    
+
+    // Verify booking belongs to user
+    if (booking.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
     booking.status = 'confirmed';
     booking.paymentStatus = 'paid';
+    booking.paymentId = paymentId;
+    booking.orderId = orderId;
+
     await booking.save();
-    
-    // Decrease available slots (only if slot still exists)
-    const slot = await ParkingSlot.findById(booking.slotId);
-    if (slot) {
-      slot.availableSlots -= 1;
-      await slot.save();
-    }
-    
-    res.status(200).json({ 
-      success: true, 
-      data: booking,
-      receiptNumber: booking.receiptNumber,
-      message: 'Booking confirmed successfully' 
+
+    res.json({
+      success: true,
+      data: booking
     });
+
   } catch (error) {
     console.error('Confirm booking error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
 
-// Get user bookings - Uses snapshot if slot is deleted
+// @desc    Get user's bookings
+// @route   GET /api/v1/bookings/my-bookings
+// @access  Private
 const getUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ userId: req.user.id })
+      .populate('slotId', 'title location pricing isActive')
       .sort({ createdAt: -1 });
-    
-    // Format bookings - use snapshot if slot is deleted
-    const formattedBookings = bookings.map(booking => {
-      const bookingObj = booking.toObject();
-      
-      // Check if slot exists by trying to fetch it (optional - we already have snapshot)
-      // If snapshot exists, we use it as fallback
-      if (bookingObj.slotSnapshot && bookingObj.slotSnapshot.title) {
-        bookingObj.slotDisplay = bookingObj.slotSnapshot;
-        bookingObj.slotDeleted = false; // Snapshot is always available
-      } else {
-        bookingObj.slotDisplay = { title: 'Parking Space (Details Unavailable)' };
-        bookingObj.slotDeleted = true;
-      }
-      
-      return {
-        ...bookingObj,
-        receiptNumber: bookingObj.receiptNumber || `SPRK${bookingObj._id.slice(-8).toUpperCase()}`
-      };
+
+    res.json({
+      success: true,
+      data: bookings
     });
-    
-    res.status(200).json({ success: true, data: formattedBookings });
+
   } catch (error) {
     console.error('Get user bookings error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// Get single booking by receipt number
+// @desc    Get booking by receipt number
+// @route   GET /api/v1/bookings/receipt/:receiptNumber
+// @access  Private
 const getBookingByReceipt = async (req, res) => {
   try {
-    const { receiptNumber } = req.params;
-    const booking = await Booking.findOne({ receiptNumber })
+    const booking = await Booking.findOne({ receiptNumber: req.params.receiptNumber })
+      .populate('slotId', 'title location pricing')
       .populate('userId', 'name email phone');
-    
+
     if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Booking not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
       });
     }
-    
-    const bookingObj = booking.toObject();
-    if (bookingObj.slotSnapshot && bookingObj.slotSnapshot.title) {
-      bookingObj.slotDisplay = bookingObj.slotSnapshot;
-    } else {
-      bookingObj.slotDisplay = { title: 'Parking Space (Details Unavailable)' };
+
+    // Verify booking belongs to user or user is admin
+    if (booking.userId._id.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized'
+      });
     }
-    
-    res.status(200).json({ success: true, data: bookingObj });
+
+    res.json({
+      success: true,
+      data: booking
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Get booking by receipt error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// Cancel booking
+// @desc    Cancel a booking
+// @route   PUT /api/v1/bookings/:id/cancel
+// @access  Private
 const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-    
+
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
     }
-    
+
+    // Verify booking belongs to user
     if (booking.userId.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized'
+      });
     }
-    
-    if (booking.status !== 'confirmed' && booking.status !== 'pending') {
-      return res.status(400).json({ message: 'Booking cannot be cancelled' });
+
+    // Check if booking can be cancelled (only confirmed/active bookings)
+    if (booking.status !== 'confirmed' && booking.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel booking with status: ${booking.status}`
+      });
     }
-    
-    const wasConfirmed = booking.status === 'confirmed';
-    
+
+    // Check if start time is in the future
+    if (new Date(booking.startTime) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot cancel a booking that has already started'
+      });
+    }
+
     booking.status = 'cancelled';
     booking.cancelledAt = new Date();
+    booking.cancellationReason = req.body.reason || 'Cancelled by user';
+
     await booking.save();
-    
-    if (wasConfirmed) {
-      const slot = await ParkingSlot.findById(booking.slotId);
-      if (slot) {
-        slot.availableSlots += 1;
-        await slot.save();
-      }
-    }
-    
-    res.status(200).json({ success: true, data: booking });
+
+    res.json({
+      success: true,
+      data: booking,
+      message: 'Booking cancelled successfully'
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Cancel booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-module.exports = { 
-  createBooking, 
+module.exports = {
+  createBooking,
   confirmBooking,
-  getUserBookings, 
+  getUserBookings,
   getBookingByReceipt,
-  cancelBooking 
+  cancelBooking
 };
