@@ -20,7 +20,6 @@ const AdminSlotsPage = () => {
       });
       setSlots(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching slots:', error);
       toast.error('Failed to load parking slots');
     } finally {
       setLoading(false);

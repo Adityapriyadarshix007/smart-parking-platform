@@ -19,8 +19,7 @@ const AdminRevenuePage = () => {
       });
       setBookings(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching revenue:', error);
-      toast.error('Failed to load revenue data');
+      toast.error('Failed to load revenue');
     } finally {
       setLoading(false);
     }
@@ -69,7 +68,6 @@ const AdminRevenuePage = () => {
                   <th className="p-3 text-left">User</th>
                   <th className="p-3 text-left">Slot</th>
                   <th className="p-3 text-left">Amount</th>
-                  <th className="p-3 text-left">Status</th>
                   <th className="p-3 text-left">Date</th>
                 </tr>
               </thead>
@@ -79,7 +77,6 @@ const AdminRevenuePage = () => {
                     <td className="p-3">{booking.userId?.name || 'N/A'}</td>
                     <td className="p-3">{booking.slotId?.title || 'N/A'}</td>
                     <td className="p-3 font-semibold text-green-600">₹{booking.totalPrice}</td>
-                    <td className="p-3">{booking.status}</td>
                     <td className="p-3">{new Date(booking.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
