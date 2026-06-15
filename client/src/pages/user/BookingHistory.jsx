@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -7,6 +7,11 @@ const BookingHistory = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  
+  // Debounce and rate limiting refs
+  const fetchInProgress = useRef(false);
+  const lastFetchTime = useRef(0);
+  const abortControllerRef = useRef(null);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -116,7 +121,33 @@ const BookingHistory = () => {
     return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
   };
 
-  const fetchBookings = async () => {
+  // Debounced fetch function with rate limiting
+  const fetchBookings = useCallback(async () => {
+    // Cancel any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Check rate limiting (minimum 2 seconds between requests)
+    const now = Date.now();
+    if (now - lastFetchTime.current < 2000) {
+      console.log('⏳ Rate limited: Please wait before making another request');
+      toast.error('Please wait a moment before refreshing');
+      return;
+    }
+    
+    // Prevent multiple simultaneous requests
+    if (fetchInProgress.current) {
+      console.log('⏳ Fetch already in progress, skipping...');
+      return;
+    }
+    
+    fetchInProgress.current = true;
+    lastFetchTime.current = now;
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    
     try {
       const token = localStorage.getItem('token');
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -126,7 +157,9 @@ const BookingHistory = () => {
       
       // Use admin endpoint (works) instead of broken user endpoint
       const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        signal: abortControllerRef.current.signal,
+        timeout: 15000 // 15 second timeout
       });
       
       console.log('✅ Admin API response:', response.status);
@@ -157,13 +190,28 @@ const BookingHistory = () => {
       setBookings(myBookings);
       
     } catch (error) {
-      console.error('❌ Error fetching bookings:', error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', error.response?.data);
-      toast.error('Failed to load bookings');
+      if (error.name === 'AbortError') {
+        console.log('Fetch aborted');
+        return;
+      }
+      if (error.code === 'ECONNABORTED') {
+        console.error('Request timeout');
+        toast.error('Request timed out. Please try again.');
+      } else if (error.response?.status === 429) {
+        console.error('❌ Rate limit exceeded (429)');
+        toast.error('Too many requests. Please wait a few seconds and try again.');
+      } else {
+        console.error('❌ Error fetching bookings:', error);
+        console.error('Status:', error.response?.status);
+        console.error('Data:', error.response?.data);
+        toast.error('Failed to load bookings');
+      }
+    } finally {
+      setLoading(false);
+      fetchInProgress.current = false;
+      abortControllerRef.current = null;
     }
-    setLoading(false);
-  };
+  }, []);
 
   const cancelBooking = async (bookingId) => {
     if (!window.confirm('Are you sure you want to cancel this booking?')) return;
@@ -174,7 +222,10 @@ const BookingHistory = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Booking cancelled successfully');
-      fetchBookings();
+      // Wait a bit before refetching to avoid rate limit
+      setTimeout(() => {
+        fetchBookings();
+      }, 1000);
     } catch (error) {
       toast.error('Failed to cancel booking');
     }
@@ -250,7 +301,14 @@ For support: support@smartpark.com | +91 98765 43210
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+    
+    // Cleanup function to abort any ongoing request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchBookings]);
 
   if (loading) {
     return (
