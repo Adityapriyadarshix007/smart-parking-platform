@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPark - Revenue Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <a href="admin-data-viewer.html" class="text-blue-600 hover:underline mb-4 inline-block">← Back to Dashboard</a>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-green-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-green-600" id="totalRevenue">-</div><div class="text-gray-600">Total Revenue</div></div>
+            <div class="bg-blue-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-blue-600" id="avgBooking">-</div><div class="text-gray-600">Average Booking</div></div>
+            <div class="bg-purple-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-purple-600" id="totalBookings">-</div><div class="text-gray-600">Total Bookings</div></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-6"><h2 class="text-xl font-bold mb-4">Transactions</h2><div id="loadingSpinner" class="flex justify-center py-12"><div class="spinner"></div></div><div id="tableContainer" style="display:none;"><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left">User</th><th class="p-3 text-left">Slot</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Date</th></tr></thead><tbody id="revenueTableBody"></tbody></table></div></div></div>
+    </div>
+    <style>.spinner{border:3px solid #e5e7eb;border-top:3px solid #3b82f6;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:20px auto;}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
+    <script>
+        async function loadRevenue() {
+            const token = localStorage.getItem('token');
+            if (!token) { window.location.href = '/login'; return; }
+            try {
+                const response = await fetch('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const bookings = result.data;
+                    const total = bookings.reduce((s, b) => s + (b.totalPrice || 0), 0);
+                    document.getElementById('totalRevenue').innerText = `₹${total.toLocaleString()}`;
+                    document.getElementById('avgBooking').innerText = `₹${Math.round(total / bookings.length).toLocaleString()}`;
+                    document.getElementById('totalBookings').innerText = bookings.length;
+                    const tbody = document.getElementById('revenueTableBody'); tbody.innerHTML = '';
+                    bookings.forEach(b => { const row = tbody.insertRow(); row.className = 'border-t'; row.insertCell(0).innerHTML = b.userId?.name || 'N/A'; row.insertCell(1).innerHTML = b.slotId?.title || 'N/A'; row.insertCell(2).innerHTML = `<span class="font-semibold text-green-600">₹${b.totalPrice}</span>`; row.insertCell(3).innerHTML = new Date(b.createdAt).toLocaleDateString(); });
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    document.getElementById('tableContainer').style.display = 'block';
+                }
+            } catch (error) { console.error(error); }
+        }
+        loadRevenue();
+    </script>
+</body>
+</html>

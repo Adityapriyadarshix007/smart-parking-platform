@@ -71,7 +71,7 @@ const AdminDashboard = () => {
   };
 
   const handleCardClick = (status) => {
-    navigate(`/admin/bookings?status=${status}`);
+    window.location.href = `/admin-bookings-filtered.html?status=${status}`;
   };
 
   const handleRoleChange = async (userId, newRole) => {
@@ -142,7 +142,7 @@ const AdminDashboard = () => {
           </Link>
           
           {/* Parking Slots - Redirects to /admin/slots */}
-          <Link to="/admin/slots">
+          <Link to="/admin-parking-slots.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -154,7 +154,7 @@ const AdminDashboard = () => {
           </Link>
           
           {/* Total Bookings - Redirects to /admin/all-bookings */}
-          <Link to="/admin/bookings?status=all">
+          <Link to="/admin-all-bookings.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -166,7 +166,7 @@ const AdminDashboard = () => {
           </Link>
           
           {/* Total Revenue - Redirects to /admin/revenue */}
-          <Link to="/admin/revenue">
+          <Link to="/admin-revenue.html">
             <motion.div 
               whileHover={{ scale: 1.02 }}
               className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
@@ -289,7 +289,7 @@ const AdminDashboard = () => {
               <div className="text-xs text-gray-500 mt-1 hidden md:block">Approve or reject parking slots</div>
             </motion.div>
           </Link>
-          <Link to="/admin/slots">
+          <Link to="/admin-parking-slots.html">
             <motion.div whileHover={{ y: -2 }} className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
               <div className="text-3xl md:text-4xl mb-2">📍</div>
               <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Parking</div>
