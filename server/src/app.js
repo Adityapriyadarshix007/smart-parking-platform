@@ -183,6 +183,16 @@ io.on('connection', (socket) => {
 });
 
 // ============================================
+// BOOKING EXPIRY JOB
+// ============================================
+const expireBookings = require('./src/jobs/expireBookings');
+
+// Initialize booking expiry job (runs every 30 minutes)
+expireBookings();
+
+console.log('✅ Booking expiry job initialized');
+
+// ============================================
 // GLOBAL ERROR HANDLERS
 // ============================================
 
@@ -229,4 +239,3 @@ server.listen(PORT, () => {
 });
 
 module.exports = { app, server };
-
