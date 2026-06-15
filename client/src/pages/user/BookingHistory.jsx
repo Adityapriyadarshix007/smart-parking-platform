@@ -62,6 +62,22 @@ const BookingHistory = () => {
     return booking.status;
   };
 
+  // ✅ NEW: Get slot display data (works even if slot is deleted)
+  const getSlotDisplay = (booking) => {
+    if (booking.slotDisplay) {
+      return booking.slotDisplay;
+    }
+    if (booking.slotSnapshot && booking.slotSnapshot.title) {
+      return booking.slotSnapshot;
+    }
+    return { title: 'Parking Space', location: { address: 'Address not available', city: '' } };
+  };
+
+  // ✅ NEW: Check if slot is from snapshot (original slot deleted)
+  const isFromSnapshot = (booking) => {
+    return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
+  };
+
   useEffect(() => {
     fetchBookings();
   }, []);
@@ -96,6 +112,7 @@ const BookingHistory = () => {
   };
 
   const downloadReceipt = (booking) => {
+    const slotData = getSlotDisplay(booking);
     const receiptContent = `
 ========================================
           SMART PARKING RECEIPT
@@ -108,9 +125,9 @@ Date: ${formatDate(booking.createdAt)}
 ----------------------------------------
 PARKING DETAILS
 ----------------------------------------
-Location: ${booking.slotId?.title || 'N/A'}
-Address: ${booking.slotId?.location?.address || 'N/A'}
-City: ${booking.slotId?.location?.city || 'N/A'}
+Location: ${slotData.title || 'N/A'}
+Address: ${slotData.location?.address || 'N/A'}
+City: ${slotData.location?.city || 'N/A'}
 
 ----------------------------------------
 VEHICLE DETAILS
@@ -191,6 +208,9 @@ For support: support@smartpark.com | +91 98765 43210
           <div className="space-y-4">
             {bookings.map((booking, index) => {
               const displayStatus = getDisplayStatus(booking);
+              const slotData = getSlotDisplay(booking);
+              const isSnapshot = isFromSnapshot(booking);
+              
               return (
                 <motion.div
                   key={booking._id}
@@ -217,9 +237,16 @@ For support: support@smartpark.com | +91 98765 43210
                     {/* Main Content */}
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-1">{booking.slotId?.title}</h3>
-                        <p className="text-gray-600 text-sm">{booking.slotId?.location?.address}</p>
-                        <p className="text-gray-500 text-xs mt-1">{booking.slotId?.location?.city}, {booking.slotId?.location?.state}</p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-bold text-gray-800 mb-1">{slotData.title || 'Parking Space'}</h3>
+                          {isSnapshot && (
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600 text-sm">{slotData.location?.address || 'Address not available'}</p>
+                        <p className="text-gray-500 text-xs mt-1">{slotData.location?.city || ''}</p>
                       </div>
                       <div className="text-right">
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(displayStatus)}`}>
@@ -289,6 +316,11 @@ For support: support@smartpark.com | +91 98765 43210
                           <div><span className="text-gray-500">Start Time:</span> {formatDate(booking.startTime)}</div>
                           <div><span className="text-gray-500">End Time:</span> {formatDate(booking.endTime)}</div>
                         </div>
+                        {isSnapshot && (
+                          <div className="mt-3 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
+                            ℹ️ This parking space is no longer available on the platform. This is your booking record.
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </div>

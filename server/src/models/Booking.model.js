@@ -11,6 +11,25 @@ const bookingSchema = new mongoose.Schema({
     ref: 'ParkingSlot',
     required: true
   },
+  // ✅ NEW: Store a snapshot of the parking slot at booking time
+  slotSnapshot: {
+    title: { type: String, default: '' },
+    location: {
+      address: { type: String, default: '' },
+      city: { type: String, default: '' },
+      state: { type: String, default: '' },
+      pincode: { type: String, default: '' },
+      landmark: { type: String, default: '' }
+    },
+    pricing: {
+      hourly: { type: Number, default: 0 },
+      daily: { type: Number, default: 0 },
+      monthly: { type: Number, default: 0 }
+    },
+    slotType: { type: String, default: '' },
+    vehicleTypes: [{ type: String }],
+    isDeleted: { type: Boolean, default: false }
+  },
   vehicleNumber: {
     type: String,
     required: [true, 'Please provide vehicle number'],
@@ -63,6 +82,22 @@ const bookingSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'refunded'],
     default: 'pending'
   },
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  cancellationReason: {
+    type: String,
+    default: null
+  },
+  refundAmount: {
+    type: Number,
+    default: null
+  },
+  completedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -72,7 +107,6 @@ const bookingSchema = new mongoose.Schema({
 // Generate receipt number before saving
 bookingSchema.pre('save', async function(next) {
   if (this.isNew && !this.receiptNumber) {
-    // Generate receipt number: SPRK + YEAR + MONTH + DAY + RANDOM
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

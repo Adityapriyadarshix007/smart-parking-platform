@@ -1,7 +1,7 @@
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 
-// Create booking
+// Create booking - Saves snapshot of the slot
 const createBooking = async (req, res) => {
   try {
     const { slotId, startTime, endTime, vehicleNumber, vehicleType } = req.body;
@@ -26,9 +26,30 @@ const createBooking = async (req, res) => {
     const roundedHours = Math.ceil(hours);
     const totalPrice = roundedHours * (slot.pricing?.hourly || 30);
     
+    // ✅ Create snapshot of the slot at booking time
+    const slotSnapshot = {
+      title: slot.title || 'Parking Space',
+      location: {
+        address: slot.location?.address || '',
+        city: slot.location?.city || '',
+        state: slot.location?.state || '',
+        pincode: slot.location?.pincode || '',
+        landmark: slot.location?.landmark || ''
+      },
+      pricing: {
+        hourly: slot.pricing?.hourly || 0,
+        daily: slot.pricing?.daily || 0,
+        monthly: slot.pricing?.monthly || 0
+      },
+      slotType: slot.slotType || 'open',
+      vehicleTypes: slot.vehicleTypes || [],
+      isDeleted: false
+    };
+    
     const booking = await Booking.create({
       userId: req.user.id,
       slotId,
+      slotSnapshot,  // ✅ Store the snapshot
       startTime,
       endTime,
       vehicleNumber: vehicleNumber.toUpperCase(),
@@ -70,7 +91,7 @@ const confirmBooking = async (req, res) => {
     booking.paymentStatus = 'paid';
     await booking.save();
     
-    // Decrease available slots
+    // Decrease available slots (only if slot still exists)
     const slot = await ParkingSlot.findById(booking.slotId);
     if (slot) {
       slot.availableSlots -= 1;
@@ -92,21 +113,35 @@ const confirmBooking = async (req, res) => {
   }
 };
 
-// Get user bookings
+// Get user bookings - Uses snapshot if slot is deleted
 const getUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ userId: req.user.id })
-      .populate('slotId')
       .sort({ createdAt: -1 });
     
-    // Add receipt number to each booking
-    const formattedBookings = bookings.map(booking => ({
-      ...booking.toObject(),
-      receiptNumber: booking.receiptNumber || `SPRK${booking._id.toString().slice(-8).toUpperCase()}`
-    }));
+    // Format bookings - use snapshot if slot is deleted
+    const formattedBookings = bookings.map(booking => {
+      const bookingObj = booking.toObject();
+      
+      // Check if slot exists by trying to fetch it (optional - we already have snapshot)
+      // If snapshot exists, we use it as fallback
+      if (bookingObj.slotSnapshot && bookingObj.slotSnapshot.title) {
+        bookingObj.slotDisplay = bookingObj.slotSnapshot;
+        bookingObj.slotDeleted = false; // Snapshot is always available
+      } else {
+        bookingObj.slotDisplay = { title: 'Parking Space (Details Unavailable)' };
+        bookingObj.slotDeleted = true;
+      }
+      
+      return {
+        ...bookingObj,
+        receiptNumber: bookingObj.receiptNumber || `SPRK${bookingObj._id.slice(-8).toUpperCase()}`
+      };
+    });
     
     res.status(200).json({ success: true, data: formattedBookings });
   } catch (error) {
+    console.error('Get user bookings error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -116,7 +151,6 @@ const getBookingByReceipt = async (req, res) => {
   try {
     const { receiptNumber } = req.params;
     const booking = await Booking.findOne({ receiptNumber })
-      .populate('slotId')
       .populate('userId', 'name email phone');
     
     if (!booking) {
@@ -126,13 +160,20 @@ const getBookingByReceipt = async (req, res) => {
       });
     }
     
-    res.status(200).json({ success: true, data: booking });
+    const bookingObj = booking.toObject();
+    if (bookingObj.slotSnapshot && bookingObj.slotSnapshot.title) {
+      bookingObj.slotDisplay = bookingObj.slotSnapshot;
+    } else {
+      bookingObj.slotDisplay = { title: 'Parking Space (Details Unavailable)' };
+    }
+    
+    res.status(200).json({ success: true, data: bookingObj });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Cancel booking - FIXED VERSION
+// Cancel booking
 const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -149,14 +190,12 @@ const cancelBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booking cannot be cancelled' });
     }
     
-    // FIX: Store original status BEFORE changing
     const wasConfirmed = booking.status === 'confirmed';
     
-    // Update booking status
     booking.status = 'cancelled';
+    booking.cancelledAt = new Date();
     await booking.save();
     
-    // FIX: Increase available slots back if it was confirmed
     if (wasConfirmed) {
       const slot = await ParkingSlot.findById(booking.slotId);
       if (slot) {
