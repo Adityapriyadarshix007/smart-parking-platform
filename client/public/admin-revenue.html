@@ -5,18 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartPark - Revenue Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(to bottom right, #f8fafc, #eff6ff); }
+        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-5px); }
+        table { border-collapse: collapse; width: 100%; }
+        th { background-color: #f8fafc; font-weight: 600; color: #1e293b; }
+        td, th { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        tr:hover { background-color: #f8fafc; }
+    </style>
 </head>
-<body class="bg-gray-50">
-    <div class="container mx-auto px-4 py-8">
-        <a href="/admin-dashboard" class="text-blue-600 hover:underline mb-4 inline-block">← Back to Dashboard</a>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-green-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-green-600" id="totalRevenue">-</div><div class="text-gray-600">Total Revenue</div></div>
-            <div class="bg-blue-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-blue-600" id="avgBooking">-</div><div class="text-gray-600">Average Booking</div></div>
-            <div class="bg-purple-50 rounded-xl shadow-md p-6 text-center"><div class="text-3xl font-bold text-purple-600" id="totalBookings">-</div><div class="text-gray-600">Total Bookings</div></div>
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl text-white p-6 mb-8 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div><h1 class="text-3xl font-bold">Revenue Report</h1><p class="text-blue-100 mt-1">Platform earnings and transaction analytics</p></div>
+                <a href="/admin-dashboard" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center gap-2">← Back to Dashboard</a>
+            </div>
         </div>
-        <div class="bg-white rounded-xl shadow-md p-6"><h2 class="text-xl font-bold mb-4">Transactions</h2><div id="loadingSpinner" class="flex justify-center py-12"><div class="spinner"></div></div><div id="tableContainer" style="display:none;"><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left">User</th><th class="p-3 text-left">Slot</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Date</th></tr></thead><tbody id="revenueTableBody"></tbody></table></div></div></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-md p-6 text-center stat-card cursor-pointer">
+                <div class="text-4xl mb-2">💰</div>
+                <div class="text-3xl font-bold text-green-600" id="totalRevenue">-</div>
+                <div class="text-gray-600 font-semibold mt-1">Total Revenue</div>
+                <div class="text-xs text-gray-400" id="revenueFrom">From 0 bookings</div>
+            </div>
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-md p-6 text-center stat-card cursor-pointer">
+                <div class="text-4xl mb-2">📊</div>
+                <div class="text-3xl font-bold text-blue-600" id="avgBooking">-</div>
+                <div class="text-gray-600 font-semibold mt-1">Average Booking Value</div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-md p-6 text-center stat-card cursor-pointer">
+                <div class="text-4xl mb-2">📅</div>
+                <div class="text-3xl font-bold text-purple-600" id="totalBookingsCount">-</div>
+                <div class="text-gray-600 font-semibold mt-1">Total Bookings</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 bg-gray-50 border-b"><h2 class="text-xl font-bold text-gray-800">Transaction History</h2></div>
+            <div id="loadingSpinner" class="py-12"><div class="spinner"></div></div>
+            <div id="tableContainer" style="display: none;">
+                <div class="overflow-x-auto"><table><thead><tr><th>User</th><th>Parking Slot</th><th>Amount</th><th>Payment Status</th><th>Date</th></tr></thead><tbody id="revenueTableBody"></tbody></table></div>
+            </div>
+        </div>
     </div>
-    <style>.spinner{border:3px solid #e5e7eb;border-top:3px solid #3b82f6;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:20px auto;}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
+
     <script>
         async function loadRevenue() {
             const token = localStorage.getItem('token');
@@ -30,10 +69,18 @@
                     const bookings = result.data;
                     const total = bookings.reduce((s, b) => s + (b.totalPrice || 0), 0);
                     document.getElementById('totalRevenue').innerText = `₹${total.toLocaleString()}`;
+                    document.getElementById('revenueFrom').innerHTML = `From ${bookings.length} bookings`;
                     document.getElementById('avgBooking').innerText = `₹${Math.round(total / bookings.length).toLocaleString()}`;
-                    document.getElementById('totalBookings').innerText = bookings.length;
+                    document.getElementById('totalBookingsCount').innerText = bookings.length;
                     const tbody = document.getElementById('revenueTableBody'); tbody.innerHTML = '';
-                    bookings.forEach(b => { const row = tbody.insertRow(); row.className = 'border-t'; row.insertCell(0).innerHTML = b.userId?.name || 'N/A'; row.insertCell(1).innerHTML = b.slotId?.title || 'N/A'; row.insertCell(2).innerHTML = `<span class="font-semibold text-green-600">₹${b.totalPrice}</span>`; row.insertCell(3).innerHTML = new Date(b.createdAt).toLocaleDateString(); });
+                    bookings.forEach(b => {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `<td><div class="font-medium">${b.userId?.name || 'N/A'}</div><div class="text-xs text-gray-500">${b.userId?.email || ''}</div></td>
+                            <td>${b.slotId?.title || 'N/A'}</td>
+                            <td class="font-semibold text-green-600">₹${b.totalPrice}</td>
+                            <td><span class="px-2 py-1 rounded-full text-xs font-medium ${b.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${b.paymentStatus || 'PAID'}</span></td>
+                            <td>${new Date(b.createdAt).toLocaleDateString()}</td>`;
+                    });
                     document.getElementById('loadingSpinner').style.display = 'none';
                     document.getElementById('tableContainer').style.display = 'block';
                 }
