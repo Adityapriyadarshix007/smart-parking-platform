@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const ManageUsers = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,11 +144,48 @@ const ManageUsers = () => {
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <div className="bg-white rounded-xl shadow-md p-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Manage Users</h1>
-          <p className="text-gray-600 mb-6">View, edit, and manage all user accounts</p>
+          {/* Header with Back to Dashboard Button */}
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Manage Users</h1>
+              <p className="text-gray-600">View, edit, and manage all user accounts</p>
+            </div>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="back-dashboard-btn"
+              style={{
+                background: '#f1f5f9',
+                border: 'none',
+                padding: '0.6rem 1.2rem',
+                borderRadius: '40px',
+                fontWeight: '600',
+                fontSize: '0.85rem',
+                color: '#1e40af',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#e2e8f0';
+                e.currentTarget.style.transform = 'translateX(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back to Dashboard
+            </button>
+          </div>
           
           {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-6 mt-4">
             <div className="flex-1">
               <input
                 type="text"
