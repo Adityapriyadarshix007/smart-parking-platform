@@ -7,23 +7,34 @@ const AdminRevenuePage = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
+  const fetchRevenue = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again');
+        return;
+      }
+      
       const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setBookings(response.data.data);
+      
+      if (response.data.success) {
+        setBookings(response.data.data || []);
+      } else {
+        toast.error('Failed to load revenue data');
+      }
     } catch (error) {
-      toast.error('Failed to load revenue data');
+      console.error('Error fetching revenue:', error);
+      toast.error(error.response?.data?.message || 'Failed to load revenue data');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchRevenue();
+  }, []);
 
   const totalRevenue = bookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
   const avgBooking = bookings.length > 0 ? totalRevenue / bookings.length : 0;
@@ -31,7 +42,10 @@ const AdminRevenuePage = () => {
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="spinner"></div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-2 text-gray-500">Loading revenue data...</p>
+        </div>
       </div>
     );
   }
@@ -47,6 +61,7 @@ const AdminRevenuePage = () => {
           <div className="bg-green-50 rounded-xl shadow-md p-6 text-center">
             <div className="text-3xl font-bold text-green-600">₹{totalRevenue.toLocaleString()}</div>
             <div className="text-gray-600">Total Revenue</div>
+            <div className="text-xs text-gray-400 mt-1">From {bookings.length} bookings</div>
           </div>
           <div className="bg-blue-50 rounded-xl shadow-md p-6 text-center">
             <div className="text-3xl font-bold text-blue-600">₹{Math.round(avgBooking).toLocaleString()}</div>
@@ -60,24 +75,38 @@ const AdminRevenuePage = () => {
 
         <div className="bg-white rounded-xl shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Transaction History</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr><th className="p-3 text-left">User</th><th className="p-3 text-left">Slot</th><th className="p-3 text-left">Amount</th><th className="p-3 text-left">Payment Status</th><th className="p-3 text-left">Date</th></tr>
-              </thead>
-              <tbody>
-                {bookings.map(booking => (
-                  <tr key={booking._id} className="border-t">
-                    <td className="p-3">{booking.userId?.name || 'N/A'}</td>
-                    <td className="p-3">{booking.slotId?.title || 'N/A'}</td>
-                    <td className="p-3 font-semibold text-green-600">₹{booking.totalPrice}</td>
-                    <td className="p-3">{booking.paymentStatus || 'PAID'}</td>
-                    <td className="p-3">{new Date(booking.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {bookings.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No transactions found</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">User</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Parking Slot</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Amount</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Payment Status</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Date</th>
+                  </td>
+                </thead>
+                <tbody>
+                  {bookings.map(booking => (
+                    <tr key={booking._id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 text-sm">{booking.userId?.name || 'N/A'}</td>
+                      <td className="p-3 text-sm">{booking.slotId?.title || 'N/A'}</td>
+                      <td className="p-3 font-semibold text-green-600 text-sm">₹{booking.totalPrice}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${booking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {booking.paymentStatus || 'PAID'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-sm">{new Date(booking.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

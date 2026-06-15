@@ -8,36 +8,50 @@ const AdminSlotsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchSlots();
-  }, []);
-
   const fetchSlots = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again');
+        return;
+      }
+      
       const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSlots(response.data.data);
+      
+      if (response.data.success) {
+        setSlots(response.data.data || []);
+      } else {
+        toast.error('Failed to load slots');
+      }
     } catch (error) {
-      toast.error('Failed to load parking slots');
+      console.error('Error fetching slots:', error);
+      toast.error(error.response?.data?.message || 'Failed to load parking slots');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="spinner"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchSlots();
+  }, []);
 
   const filteredSlots = slots.filter(slot =>
     slot.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     slot.location?.city?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-2 text-gray-500">Loading parking slots...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-8">
@@ -54,32 +68,43 @@ const AdminSlotsPage = () => {
             placeholder="Search by title or city..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
           />
           
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr><th className="p-3 text-left">Title</th><th className="p-3 text-left">City</th><th className="p-3 text-left">Total Slots</th><th className="p-3 text-left">Available</th><th className="p-3 text-left">Hourly Rate</th><th className="p-3 text-left">Status</th></tr>
-              </thead>
-              <tbody>
-                {filteredSlots.map(slot => (
-                  <tr key={slot._id} className="border-t">
-                    <td className="p-3">{slot.title}</td>
-                    <td className="p-3">{slot.location?.city || 'N/A'}</td>
-                    <td className="p-3">{slot.totalSlots}</td>
-                    <td className="p-3">{slot.availableSlots}</td>
-                    <td className="p-3">₹{slot.pricing?.hourly || 0}/hr</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${slot.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {slot.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
+          {filteredSlots.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No parking slots found</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Title</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">City</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Total Slots</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Available</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Hourly Rate</th>
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredSlots.map(slot => (
+                    <tr key={slot._id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 text-sm">{slot.title || 'N/A'}</td>
+                      <td className="p-3 text-sm">{slot.location?.city || 'N/A'}</td>
+                      <td className="p-3 text-sm">{slot.totalSlots || 0}</td>
+                      <td className="p-3 text-sm">{slot.availableSlots || 0}</td>
+                      <td className="p-3 text-sm">₹{slot.pricing?.hourly || 0}/hr</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${slot.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {slot.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
