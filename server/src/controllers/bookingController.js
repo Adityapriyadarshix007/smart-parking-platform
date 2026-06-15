@@ -36,10 +36,18 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Check for overlapping bookings
+    // ✅ CRITICAL: Check if there are available slots
+    if (slot.availableSlots <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No available slots at this parking location. Please try another time or location.'
+      });
+    }
+
+    // Check for overlapping bookings for the same slot
     const overlappingBooking = await Booking.findOne({
       slotId,
-      status: { $in: ['confirmed', 'active'] },
+      status: { $in: ['confirmed', 'active', 'pending'] },
       $or: [
         { startTime: { $lt: new Date(endTime), $gte: new Date(startTime) } },
         { endTime: { $gt: new Date(startTime), $lte: new Date(endTime) } }
@@ -49,7 +57,7 @@ const createBooking = async (req, res) => {
     if (overlappingBooking) {
       return res.status(400).json({
         success: false,
-        message: 'This time slot is already booked'
+        message: 'This time slot is already booked. Please choose a different time.'
       });
     }
 
@@ -79,11 +87,20 @@ const createBooking = async (req, res) => {
 
     console.log('✅ Created slot snapshot:', slotSnapshot.title);
 
+    // ✅ Decrease available slots count
+    const updatedSlot = await ParkingSlot.findByIdAndUpdate(
+      slotId,
+      { $inc: { availableSlots: -1 } },  // Decrement by 1
+      { new: true }  // Return updated document
+    );
+
+    console.log(`✅ Available slots decreased to: ${updatedSlot.availableSlots}`);
+
     // Create booking with snapshot
     const booking = new Booking({
       userId: req.user.id,
       slotId,
-      slotSnapshot, // ✅ Store permanent snapshot
+      slotSnapshot,
       vehicleNumber: vehicleNumber.toUpperCase(),
       vehicleType,
       startTime: new Date(startTime),
@@ -100,11 +117,12 @@ const createBooking = async (req, res) => {
     // Populate user and slot info for response
     const populatedBooking = await Booking.findById(booking._id)
       .populate('userId', 'name email')
-      .populate('slotId', 'title location pricing');
+      .populate('slotId', 'title location pricing availableSlots totalSlots');
 
     res.status(201).json({
       success: true,
-      data: populatedBooking
+      data: populatedBooking,
+      message: 'Booking created successfully'
     });
 
   } catch (error) {
@@ -112,6 +130,76 @@ const createBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to create booking'
+    });
+  }
+};
+
+// @desc    Cancel a booking and restore available slots
+// @route   PUT /api/v1/bookings/:id/cancel
+// @access  Private
+const cancelBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Verify booking belongs to user
+    if (booking.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    // Check if booking can be cancelled (only confirmed/active bookings)
+    if (booking.status !== 'confirmed' && booking.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel booking with status: ${booking.status}`
+      });
+    }
+
+    // Check if start time is in the future
+    if (new Date(booking.startTime) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot cancel a booking that has already started'
+      });
+    }
+
+    // ✅ Restore available slots when booking is cancelled
+    const slot = await ParkingSlot.findById(booking.slotId);
+    if (slot) {
+      await ParkingSlot.findByIdAndUpdate(
+        booking.slotId,
+        { $inc: { availableSlots: 1 } },  // Increment by 1
+        { new: true }
+      );
+      console.log(`✅ Restored available slot for cancelled booking`);
+    }
+
+    booking.status = 'cancelled';
+    booking.cancelledAt = new Date();
+    booking.cancellationReason = req.body.reason || 'Cancelled by user';
+
+    await booking.save();
+
+    res.json({
+      success: true,
+      data: booking,
+      message: 'Booking cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Cancel booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
@@ -136,6 +224,15 @@ const confirmBooking = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized'
+      });
+    }
+
+    // ✅ Double-check slot availability before confirming
+    const slot = await ParkingSlot.findById(booking.slotId);
+    if (slot && slot.availableSlots <= 0 && booking.status !== 'confirmed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Slot no longer available. Please choose another slot.'
       });
     }
 
@@ -166,7 +263,7 @@ const confirmBooking = async (req, res) => {
 const getUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ userId: req.user.id })
-      .populate('slotId', 'title location pricing isActive')
+      .populate('slotId', 'title location pricing isActive availableSlots totalSlots')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -221,58 +318,49 @@ const getBookingByReceipt = async (req, res) => {
   }
 };
 
-// @desc    Cancel a booking
-// @route   PUT /api/v1/bookings/:id/cancel
+// @desc    Check slot availability for a time range
+// @route   POST /api/v1/bookings/check-availability
 // @access  Private
-const cancelBooking = async (req, res) => {
+const checkAvailability = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const { slotId, startTime, endTime } = req.body;
 
-    if (!booking) {
+    const slot = await ParkingSlot.findById(slotId);
+    if (!slot) {
       return res.status(404).json({
         success: false,
-        message: 'Booking not found'
+        message: 'Parking slot not found'
       });
     }
 
-    // Verify booking belongs to user
-    if (booking.userId.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Unauthorized'
+    // Check if there are available slots
+    if (slot.availableSlots <= 0) {
+      return res.json({
+        success: true,
+        available: false,
+        message: 'No parking spots available at this location'
       });
     }
 
-    // Check if booking can be cancelled (only confirmed/active bookings)
-    if (booking.status !== 'confirmed' && booking.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot cancel booking with status: ${booking.status}`
-      });
-    }
-
-    // Check if start time is in the future
-    if (new Date(booking.startTime) < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot cancel a booking that has already started'
-      });
-    }
-
-    booking.status = 'cancelled';
-    booking.cancelledAt = new Date();
-    booking.cancellationReason = req.body.reason || 'Cancelled by user';
-
-    await booking.save();
+    // Check for overlapping bookings
+    const overlappingBooking = await Booking.findOne({
+      slotId,
+      status: { $in: ['confirmed', 'active', 'pending'] },
+      $or: [
+        { startTime: { $lt: new Date(endTime), $gte: new Date(startTime) } },
+        { endTime: { $gt: new Date(startTime), $lte: new Date(endTime) } }
+      ]
+    });
 
     res.json({
       success: true,
-      data: booking,
-      message: 'Booking cancelled successfully'
+      available: !overlappingBooking,
+      message: overlappingBooking ? 'This time slot is already booked' : 'Slot available',
+      availableSlots: slot.availableSlots
     });
 
   } catch (error) {
-    console.error('Cancel booking error:', error);
+    console.error('Check availability error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -285,5 +373,6 @@ module.exports = {
   confirmBooking,
   getUserBookings,
   getBookingByReceipt,
-  cancelBooking
+  cancelBooking,
+  checkAvailability
 };
