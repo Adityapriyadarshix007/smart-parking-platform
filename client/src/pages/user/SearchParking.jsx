@@ -20,7 +20,7 @@ L.Icon.Default.mergeOptions({
 
 const SearchParking = () => {
   const [searchParams, setSearchParams] = useState({ 
-    radius: 30, 
+    radius: 10, 
     vehicleType: 'all',
     page: 1
   });
@@ -40,14 +40,14 @@ const SearchParking = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
-  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]);
-  const [mapZoom, setMapZoom] = useState(5);
+  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // Center of India
+  const [mapZoom, setMapZoom] = useState(5); // Zoom out to show India
   const [mapReady, setMapReady] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const addressSearchRef = useRef(null);
   const navigate = useNavigate();
 
-  const defaultLocation = { lat: 20.5937, lng: 78.9629 };
+  const defaultLocation = { lat: 20.5937, lng: 78.9629 }; // Center of India
 
   useEffect(() => {
     setMapReady(true);
@@ -181,12 +181,35 @@ const SearchParking = () => {
       if (response.data.success) {
         setParkingSlots(response.data.data);
         
-        if (response.data.data.length === 0) {
-          toast.info(`No parking slots found within ${searchParams.radius} km of this location. Try increasing the radius.`);
+        if (response.data.data.length > 0) {
+          const bounds = [[lat, lng]];
+          response.data.data.forEach(slot => {
+            if (slot.location && slot.location.coordinates) {
+              bounds.push([slot.location.coordinates[1], slot.location.coordinates[0]]);
+            }
+          });
+          
+          if (bounds.length > 1) {
+            const lats = bounds.map(b => b[0]);
+            const lngs = bounds.map(b => b[1]);
+            const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+            const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+            setMapCenter([centerLat, centerLng]);
+            
+            let zoom = 11;
+            const maxLatDiff = Math.max(...lats) - Math.min(...lats);
+            const maxLngDiff = Math.max(...lngs) - Math.min(...lngs);
+            const maxDiff = Math.max(maxLatDiff, maxLngDiff);
+            if (maxDiff < 0.1) zoom = 14;
+            else if (maxDiff < 0.5) zoom = 13;
+            else if (maxDiff < 1) zoom = 12;
+            else if (maxDiff < 2) zoom = 11;
+            else zoom = 10;
+            setMapZoom(zoom);
+          }
+        } else {
+          toast.info('No parking slots found in this area. Try a different location or increase radius.');
         }
-      } else {
-        setParkingSlots([]);
-        toast.info(response.data.message || 'No parking slots found');
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -208,6 +231,16 @@ const SearchParking = () => {
     if (userLocation && hasSearched) {
       await searchParking(userLocation.lat, userLocation.lng);
     }
+  };
+
+  // ✅ Helper function to calculate total price
+  const calculateTotalPrice = (slot, startTime, endTime) => {
+    if (!slot || !startTime || !endTime) return 0;
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffHours = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60)));
+    const hourlyRate = slot.pricing?.hourly || 30;
+    return diffHours * hourlyRate;
   };
 
   const loadRazorpayScript = () => {
@@ -290,6 +323,7 @@ const SearchParking = () => {
     }
   };
 
+  // ✅ FIXED: Added totalPrice to the booking request
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -320,17 +354,31 @@ const SearchParking = () => {
       return;
     }
     
+    // ✅ Calculate total price
+    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
+    
+    console.log('📝 Creating booking with data:', {
+      slotId: selectedSlot._id,
+      startTime: bookingDetails.startTime,
+      endTime: bookingDetails.endTime,
+      vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
+      vehicleType: bookingDetails.vehicleType,
+      totalPrice: totalPrice
+    });
+    
     setBookingLoading(true);
     
     try {
       const token = localStorage.getItem('token');
       
+      // ✅ FIXED: Added totalPrice field
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
         startTime: bookingDetails.startTime,
         endTime: bookingDetails.endTime,
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
-        vehicleType: bookingDetails.vehicleType
+        vehicleType: bookingDetails.vehicleType,
+        totalPrice: totalPrice  // ✅ CRITICAL FIX: Added missing totalPrice
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -342,6 +390,7 @@ const SearchParking = () => {
       }
     } catch (error) {
       console.error('Booking error:', error);
+      console.error('Error response:', error.response?.data);
       toast.error(error.response?.data?.message || 'Failed to create booking');
     } finally {
       setBookingLoading(false);
@@ -391,7 +440,7 @@ const SearchParking = () => {
   const bookingSummary = getBookingSummary();
   
   const markerPositions = parkingSlots
-    .filter(slot => slot.location && slot.location.coordinates && slot.location.coordinates.length === 2)
+    .filter(slot => slot.location && slot.location.coordinates)
     .map(slot => [slot.location.coordinates[1], slot.location.coordinates[0]]);
 
   return (
@@ -407,13 +456,13 @@ const SearchParking = () => {
               <input
                 type="range"
                 min="1"
-                max="30"
+                max="20"
                 value={searchParams.radius}
                 onChange={(e) => handleRadiusChange(parseInt(e.target.value))}
                 className="w-full accent-blue-600"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>1 km</span><span>10 km</span><span>20 km</span><span>30 km</span>
+                <span>1 km</span><span>5 km</span><span>10 km</span><span>15 km</span><span>20 km</span>
               </div>
             </div>
             <div>
@@ -450,8 +499,8 @@ const SearchParking = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
-              <div className="text-center py-2 bg-gray-100 rounded-lg">
-                <span className="font-semibold text-gray-700">{parkingSlots.length} parking spots found</span>
+              <div className="text-xs text-gray-500 text-center py-2 bg-gray-100 rounded-lg">
+                {parkingSlots.length} parking spots found
               </div>
             </div>
           </div>
@@ -475,11 +524,11 @@ const SearchParking = () => {
             </div>
           )}
           
-          {manualAddress && !locationError && hasSearched && parkingSlots.length === 0 && !loading && (
-            <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <p className="text-sm text-yellow-700 flex items-center gap-2">
+          {manualAddress && !locationError && hasSearched && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700 flex items-center gap-2">
                 <span>📍</span> 
-                <span>No parking spots found near "{manualAddress.substring(0, 50)}". Try increasing the radius or searching a different location.</span>
+                <span>Showing results near: <strong>{manualAddress.length > 80 ? manualAddress.substring(0, 80) + '...' : manualAddress}</strong></span>
               </p>
             </div>
           )}
@@ -504,7 +553,7 @@ const SearchParking = () => {
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🅿️</div>
                   <p className="text-gray-500 font-medium">No parking slots found</p>
-                  <p className="text-sm text-gray-400 mt-2">Try a different location or increase the search radius</p>
+                  <p className="text-sm text-gray-400 mt-2">Try a different location or increase radius</p>
                 </div>
               ) : !hasSearched ? (
                 <div className="text-center py-12">
@@ -569,7 +618,7 @@ const SearchParking = () => {
             </h2>
             {mapReady ? (
               <MapContainer 
-                key={`map-${parkingSlots.length}`}
+                key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
                 center={mapCenter} 
                 zoom={mapZoom} 
                 style={{ height: '500px', width: '100%', borderRadius: '12px' }}
@@ -577,37 +626,17 @@ const SearchParking = () => {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapController center={mapCenter} zoom={mapZoom} markers={markerPositions} />
                 
-                {/* User Location Marker - Fixed to show correct info */}
-                {userLocation && (
-                  <BlinkingMarker 
-                    key="user-location"
-                    position={[userLocation.lat, userLocation.lng]}
-                    slot={{ 
-                      title: 'Your Location', 
-                      location: { address: manualAddress || 'Current Location' }, 
-                      pricing: { hourly: 0 }, 
-                      availableSlots: 0 
-                    }}
-                    onBook={() => {}}
-                    isUserLocation={true}
-                  />
-                )}
-                
-                {/* Parking Slots Markers */}
-                {parkingSlots.map((slot) => {
-                  if (slot.location && slot.location.coordinates && slot.location.coordinates.length === 2) {
-                    return (
-                      <BlinkingMarker 
-                        key={slot._id} 
-                        position={[slot.location.coordinates[1], slot.location.coordinates[0]]}
-                        slot={slot}
-                        onBook={openBookingModal}
-                        isUserLocation={false}
-                      />
-                    );
-                  }
-                  return null;
-                })}
+                {/* Parking Slots Markers - Unified */}
+                {parkingSlots.map((slot) => (
+                  slot.location && slot.location.coordinates && (
+                    <BlinkingMarker 
+                      key={slot._id} 
+                      position={[slot.location.coordinates[1], slot.location.coordinates[0]]}
+                      slot={slot}
+                      onBook={openBookingModal}
+                    />
+                  )
+                ))}
               </MapContainer>
             ) : (
               <div className="h-[500px] flex items-center justify-center bg-gray-100 rounded-lg">
