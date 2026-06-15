@@ -5,64 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartPark - Bookings</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
-        .spinner { border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); min-height: 100vh; }
+        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f9fafb; font-weight: 600; }
+        .status-confirmed { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+        .status-pending { background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+        .btn-action { background: #3b82f6; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; border: none; cursor: pointer; margin: 0 2px; }
+        .btn-action:hover { background: #2563eb; }
     </style>
 </head>
 <body>
     <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <a href="/admin-dashboard" class="text-blue-600 hover:underline mb-4 inline-block">← Back to Dashboard</a>
-        <div class="bg-white rounded-xl shadow-md p-6 mt-4">
-            <h1 class="text-2xl font-bold mb-2" id="pageTitle">Bookings</h1>
-            <p class="text-gray-600 mb-4" id="bookingCount">Loading...</p>
-            <input type="text" id="searchInput" placeholder="Search..." class="w-full px-4 py-2 border rounded-lg mb-4">
-            <div id="loading" class="text-center py-8"><div class="spinner"></div></div>
-            <div id="tableContainer" style="display:none;"><div class="overflow-x-auto"><table><thead><tr><th>User</th><th>Parking Slot</th><th>Vehicle</th><th>Date & Time</th><th>Amount</th></tr></thead><tbody id="bookingsBody"></tbody></table></div></div>
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl text-white p-6 mb-8 shadow-lg">
+            <div class="flex justify-between items-center">
+                <div><h1 class="text-3xl font-bold" id="pageTitle">Bookings</h1><p class="text-blue-100 mt-1" id="pageSubtitle">View and manage bookings</p></div>
+                <a href="/admin-dashboard" class="bg-white/20 hover:bg-white/30 px-5 py-2 rounded-xl transition">← Back to Dashboard</a>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-5 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 relative"><input type="text" id="searchInput" placeholder="Search by user name or parking slot..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl"><div class="absolute left-3 top-3 text-gray-400">🔍</div></div>
+                <button onclick="fetchBookings()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div id="loadingSpinner" class="py-12 text-center"><div class="spinner"></div><p class="text-gray-500 mt-2">Loading bookings...</p></div>
+            <div id="tableContainer" style="display: none;">
+                <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>User</th><th>Parking Slot</th><th>Vehicle</th><th>Date & Time</th><th>Amount</th></tr></thead><tbody id="bookingsBody"></tbody></table></div>
+                <div class="p-4 bg-gray-50 border-t"><p class="text-sm text-gray-500" id="recordCount"></p></div>
+            </div>
         </div>
     </div>
+
     <script>
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status') || 'all';
         const titles = { confirmed: 'Confirmed Bookings', pending: 'Pending Bookings', cancelled: 'Cancelled Bookings' };
+        const subtitles = { confirmed: 'Successfully completed & paid bookings', pending: 'Awaiting confirmation', cancelled: 'Refunded / Rejected bookings' };
         document.getElementById('pageTitle').innerText = titles[status] || 'Bookings';
-        
+        document.getElementById('pageSubtitle').innerHTML = subtitles[status] || 'All bookings';
+
+        let allBookings = [];
         function formatDate(d) { return new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
-        async function loadBookings() {
+        async function fetchBookings() {
             const token = localStorage.getItem('token');
             if (!token) { window.location.href = '/login'; return; }
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('tableContainer').style.display = 'none';
             try {
                 const res = await fetch('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success) {
-                    let bookings = data.data;
-                    if (status !== 'all') bookings = bookings.filter(b => b.status === status);
-                    document.getElementById('bookingCount').innerText = `Total: ${bookings.length} bookings`;
-                    document.getElementById('loading').style.display = 'none';
+                if (data.success && data.data) {
+                    allBookings = data.data;
+                    displayBookings();
+                    document.getElementById('loadingSpinner').style.display = 'none';
                     document.getElementById('tableContainer').style.display = 'block';
-                    const tbody = document.getElementById('bookingsBody');
-                    bookings.forEach(b => {
-                        const row = tbody.insertRow();
-                        row.innerHTML = `<td><div class="font-medium">${b.userId?.name || 'N/A'}</div><div class="text-xs text-gray-500">${b.userId?.email || ''}</div></td><td><div class="font-medium">${b.slotId?.title || 'N/A'}</div><div class="text-xs text-gray-500">${b.slotId?.location?.city || ''}</div></td><td>${b.vehicleNumber}</td><td>${formatDate(b.startTime)}<br><span class="text-xs text-gray-400">to ${formatDate(b.endTime)}</span></td><td class="font-semibold text-green-600">₹${b.totalPrice}</td>`;
-                    });
                 }
             } catch(e) { console.error(e); }
         }
-        document.getElementById('searchInput').addEventListener('input', function() {
-            const search = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#bookingsBody tr');
-            rows.forEach(row => {
-                const text = row.cells[0].innerText.toLowerCase() + row.cells[1].innerText.toLowerCase();
-                row.style.display = text.includes(search) ? '' : 'none';
+        function displayBookings() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = allBookings;
+            if (status !== 'all') filtered = filtered.filter(b => b.status === status);
+            if (search) filtered = filtered.filter(b => b.userId?.name?.toLowerCase().includes(search) || b.slotId?.title?.toLowerCase().includes(search));
+            document.getElementById('recordCount').innerHTML = `Showing ${filtered.length} bookings`;
+            const tbody = document.getElementById('bookingsBody');
+            tbody.innerHTML = '';
+            filtered.forEach(b => {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td><div class="font-medium">${b.userId?.name || 'N/A'}</div><div class="text-xs text-gray-500">${b.userId?.email || ''}</div></td>
+                    <td><div class="font-medium">${b.slotId?.title || 'N/A'}</div><div class="text-xs text-gray-500">${b.slotId?.location?.city || ''}</div></td>
+                    <td>${b.vehicleNumber}</td>
+                    <td>${formatDate(b.startTime)}<br><span class="text-xs text-gray-400">to ${formatDate(b.endTime)}</span></td>
+                    <td class="font-semibold text-green-600">₹${b.totalPrice}</td>`;
             });
-        });
-        loadBookings();
+        }
+        document.getElementById('searchInput').addEventListener('input', displayBookings);
+        fetchBookings();
     </script>
 </body>
 </html>
