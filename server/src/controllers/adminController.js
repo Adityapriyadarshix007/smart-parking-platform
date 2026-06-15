@@ -13,7 +13,7 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// Get dashboard stats - WITH CORRECT BOOKING COUNTS
+// Get dashboard stats - WITH ALL BOOKING COUNTS
 const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -26,7 +26,7 @@ const getDashboardStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$totalPrice' } } }
     ]);
     
-    // ✅ CORRECT: Get actual booking counts from database
+    // ✅ ADD THESE - Actual booking status counts from database
     const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
     const pendingBookings = await Booking.countDocuments({ status: 'pending' });
     const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
@@ -111,7 +111,7 @@ const updateParkingSlot = async (req, res) => {
   }
 };
 
-// Delete any parking slot (admin) - SOFT DELETE (mark as deleted but keep for bookings)
+// Delete any parking slot (admin)
 const deleteParkingSlot = async (req, res) => {
   try {
     const { id } = req.params;
@@ -121,28 +121,10 @@ const deleteParkingSlot = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Parking slot not found' });
     }
     
-    // Soft delete - mark as inactive and deleted (but keep in database for booking references)
-    slot.isActive = false;
-    slot.status = 'suspended';
-    await slot.save();
-    
-    res.status(200).json({ success: true, message: 'Parking slot deactivated successfully' });
+    await ParkingSlot.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: 'Parking slot deleted successfully' });
   } catch (error) {
     console.error('Delete error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// Hard delete parking slot (admin only - use with caution)
-const hardDeleteParkingSlot = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const slot = await ParkingSlot.findByIdAndDelete(id);
-    if (!slot) {
-      return res.status(404).json({ success: false, message: 'Parking slot not found' });
-    }
-    res.status(200).json({ success: true, message: 'Parking slot permanently deleted' });
-  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -313,7 +295,6 @@ module.exports = {
   getAllParkingSlots,
   updateParkingSlot,
   deleteParkingSlot,
-  hardDeleteParkingSlot,
   toggleParkingSlotStatus,
   deleteUser,
   updateUserRole,
