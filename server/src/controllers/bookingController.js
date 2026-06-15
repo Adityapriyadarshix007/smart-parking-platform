@@ -338,7 +338,8 @@ const checkAvailability = async (req, res) => {
       return res.json({
         success: true,
         available: false,
-        message: 'No parking spots available at this location'
+        message: 'No parking spots available at this location',
+        availableSlots: 0
       });
     }
 

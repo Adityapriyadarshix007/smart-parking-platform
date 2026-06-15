@@ -7,7 +7,7 @@ const {
   getUserBookings, 
   getBookingByReceipt,
   cancelBooking,
-  checkAvailability  // ✅ Add this
+  checkAvailability
 } = require('../../controllers/bookingController');
 
 // Create booking
@@ -25,7 +25,7 @@ router.get('/receipt/:receiptNumber', protect, getBookingByReceipt);
 // Cancel booking
 router.put('/:id/cancel', protect, cancelBooking);
 
-// ✅ Check availability before booking
+// Check availability before booking
 router.post('/check-availability', protect, checkAvailability);
 
 module.exports = router;
