@@ -64,21 +64,23 @@ const BookingHistory = () => {
     console.log('  - slotSnapshot exists:', !!booking.slotSnapshot);
     console.log('  - slotDisplay exists:', !!booking.slotDisplay);
     
-    // Case 1: slotId is populated with full slot object (most common)
+    // Case 1: slotSnapshot exists (permanent stored data from booking time)
+    if (booking.slotSnapshot && booking.slotSnapshot.title) {
+      console.log('✅ Using slotSnapshot with title:', booking.slotSnapshot.title);
+      console.log('   Address:', booking.slotSnapshot.location?.address);
+      return booking.slotSnapshot;
+    }
+    
+    // Case 2: slotId is populated with full slot object
     if (booking.slotId && typeof booking.slotId === 'object') {
       if (booking.slotId.title) {
         console.log('✅ Using populated slotId with title:', booking.slotId.title);
+        console.log('   Address:', booking.slotId.location?.address);
         return booking.slotId;
       }
       if (booking.slotId._id) {
         console.log('⚠️ slotId object exists but missing title, checking nested structure');
       }
-    }
-    
-    // Case 2: slotSnapshot exists (from backup when slot is deleted)
-    if (booking.slotSnapshot && booking.slotSnapshot.title) {
-      console.log('✅ Using slotSnapshot with title:', booking.slotSnapshot.title);
-      return booking.slotSnapshot;
     }
     
     // Case 3: slotDisplay exists (legacy field)
@@ -140,7 +142,8 @@ const BookingHistory = () => {
           slotIdType: typeof allBookings[0].slotId,
           slotIdValue: allBookings[0].slotId,
           hasSlotSnapshot: !!allBookings[0].slotSnapshot,
-          hasSlotDisplay: !!allBookings[0].slotDisplay
+          hasSlotDisplay: !!allBookings[0].slotDisplay,
+          slotSnapshotData: allBookings[0].slotSnapshot
         });
       }
       
@@ -403,6 +406,10 @@ For support: support@smartpark.com | +91 98765 43210
                           <div>
                             <span className="text-gray-500">Payment ID:</span>{' '}
                             {booking.paymentId || 'N/A'}
+                          </div>
+                          <div className="md:col-span-2">
+                            <span className="text-gray-500">Full Address:</span>{' '}
+                            {slotData.location?.address || 'Address not available'}, {slotData.location?.city || ''}
                           </div>
                           <div className="md:col-span-2">
                             <span className="text-gray-500">Start Time:</span>{' '}
