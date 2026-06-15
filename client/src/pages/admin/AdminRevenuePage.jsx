@@ -66,7 +66,7 @@ const AdminRevenuePage = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="p-3 text-left">User</th>
-                  <th className="p-3 text-left">Slot</th>
+                  <th className="p-3 text-left">Parking Slot</th>
                   <th className="p-3 text-left">Amount</th>
                   <th className="p-3 text-left">Date</th>
                 </tr>
