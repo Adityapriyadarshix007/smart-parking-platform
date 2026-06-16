@@ -3,6 +3,15 @@ const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 const User = require('../models/User.model');
 
+// ✅ Helper: Convert to IST (UTC + 5:30)
+const convertToIST = (date) => {
+  if (!date) return date;
+  const d = new Date(date);
+  d.setHours(d.getHours() + 5);
+  d.setMinutes(d.getMinutes() + 30);
+  return d;
+};
+
 // @desc    Create a new booking
 // @route   POST /api/v1/bookings
 // @access  Private
@@ -19,6 +28,13 @@ const createBooking = async (req, res) => {
 
     console.log('📝 Creating booking for slot:', slotId);
     console.log('👤 User ID:', req.user.id);
+
+    // ✅ Convert to IST before processing
+    const startIST = convertToIST(new Date(startTime));
+    const endIST = convertToIST(new Date(endTime));
+
+    console.log(`🕐 Start (IST): ${startIST}`);
+    console.log(`🕐 End (IST): ${endIST}`);
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -45,13 +61,13 @@ const createBooking = async (req, res) => {
         });
       }
 
-      // ✅ CRITICAL: Count how many spots are already booked for this time
+      // ✅ Count booked spots using IST times
       const bookedCount = await Booking.countDocuments({
         slotId,
         status: { $in: ['confirmed', 'active'] },
         $or: [
-          { startTime: { $lt: new Date(endTime), $gte: new Date(startTime) } },
-          { endTime: { $gt: new Date(startTime), $lte: new Date(endTime) } }
+          { startTime: { $lt: endIST, $gte: startIST } },
+          { endTime: { $gt: startIST, $lte: endIST } }
         ]
       }).session(session);
 
@@ -119,15 +135,15 @@ const createBooking = async (req, res) => {
 
       console.log(`✅ Available slots decreased to: ${updatedSlot.availableSlots}/${updatedSlot.totalSlots}`);
 
-      // Create booking
+      // ✅ Store IST times in database
       const booking = new Booking({
         userId: req.user.id,
         slotId,
         slotSnapshot,
         vehicleNumber: vehicleNumber.toUpperCase(),
         vehicleType,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
+        startTime: startIST,  // ✅ Store as IST
+        endTime: endIST,      // ✅ Store as IST
         totalPrice,
         status: 'confirmed',
         paymentStatus: 'paid',
@@ -140,6 +156,7 @@ const createBooking = async (req, res) => {
       session.endSession();
       
       console.log('✅ Booking saved with ID:', booking._id);
+      console.log(`✅ Stored times (IST): ${booking.startTime} to ${booking.endTime}`);
 
       const populatedBooking = await Booking.findById(booking._id)
         .populate('userId', 'name email')
@@ -177,6 +194,10 @@ const checkAvailability = async (req, res) => {
     console.log('🔍 Checking availability for slot:', slotId);
     console.log('   Time range:', startTime, '-', endTime);
 
+    // ✅ Convert to IST for comparison
+    const startIST = convertToIST(new Date(startTime));
+    const endIST = convertToIST(new Date(endTime));
+
     const slot = await ParkingSlot.findById(slotId);
     if (!slot) {
       return res.status(404).json({
@@ -185,13 +206,13 @@ const checkAvailability = async (req, res) => {
       });
     }
 
-    // ✅ Count how many spots are already booked for this time
+    // ✅ Count booked spots using IST times
     const bookedCount = await Booking.countDocuments({
       slotId,
       status: { $in: ['confirmed', 'active'] },
       $or: [
-        { startTime: { $lt: new Date(endTime), $gte: new Date(startTime) } },
-        { endTime: { $gt: new Date(startTime), $lte: new Date(endTime) } }
+        { startTime: { $lt: endIST, $gte: startIST } },
+        { endTime: { $gt: startIST, $lte: endIST } }
       ]
     });
 
@@ -276,7 +297,9 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    if (new Date(booking.startTime) < new Date()) {
+    // ✅ Check using IST
+    const nowIST = convertToIST(new Date());
+    if (new Date(booking.startTime) < nowIST) {
       return res.status(400).json({
         success: false,
         message: 'Cannot cancel a booking that has already started'
@@ -292,7 +315,7 @@ const cancelBooking = async (req, res) => {
     console.log(`✅ Restored available slot for cancelled booking`);
 
     booking.status = 'cancelled';
-    booking.cancelledAt = new Date();
+    booking.cancelledAt = convertToIST(new Date());
     booking.cancellationReason = req.body.reason || 'Cancelled by user';
 
     await booking.save();

@@ -2,14 +2,31 @@ const cron = require('node-cron');
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 
+// ✅ Helper: Get current time in IST
+const getISTNow = () => {
+  const now = new Date();
+  now.setHours(now.getHours() + 5);
+  now.setMinutes(now.getMinutes() + 30);
+  return now;
+};
+
+// ✅ Helper: Convert to IST
+const convertToIST = (date) => {
+  if (!date) return date;
+  const d = new Date(date);
+  d.setHours(d.getHours() + 5);
+  d.setMinutes(d.getMinutes() + 30);
+  return d;
+};
+
 // ✅ Extract the processing logic into a reusable function
 const processExpiredBookings = async () => {
   try {
-    const now = new Date();
+    const nowIST = getISTNow();
     
     // Find expired bookings (endTime is in the past and status is confirmed or active)
     const expiredBookings = await Booking.find({
-      endTime: { $lt: now },
+      endTime: { $lt: nowIST },
       status: { $in: ['confirmed', 'active'] }
     });
     
@@ -17,7 +34,7 @@ const processExpiredBookings = async () => {
       return { processed: 0, restored: 0, errors: 0 };
     }
     
-    console.log(`📊 Found ${expiredBookings.length} expired bookings`);
+    console.log(`📊 Found ${expiredBookings.length} expired bookings (IST)`);
     
     let restoredCount = 0;
     let errorCount = 0;
@@ -26,7 +43,7 @@ const processExpiredBookings = async () => {
       try {
         // Update booking status to expired
         booking.status = 'expired';
-        booking.completedAt = now;
+        booking.completedAt = nowIST;
         await booking.save();
         console.log(`✅ Marked booking ${booking._id} as expired`);
         
@@ -67,7 +84,7 @@ const processExpiredBookings = async () => {
 const expireBookings = () => {
   // ✅ Run every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
-    console.log('🕐 Running booking expiration check at:', new Date().toISOString());
+    console.log('🕐 Running booking expiration check at (IST):', getISTNow().toISOString());
     await processExpiredBookings();
   });
   
