@@ -37,7 +37,7 @@ const OwnerDashboard = () => {
     pricing: { hourly: 30, daily: 150, monthly: 3000 }
   });
 
-  // ✅ Helper to get slot display from snapshot or slotId
+  // ✅ IMPROVED: Get slot display from multiple sources
   const getSlotDisplay = (booking) => {
     // Priority 1: slotSnapshot (permanent storage from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
@@ -67,11 +67,29 @@ const OwnerDashboard = () => {
       };
     }
     
-    // Priority 3: Fallback - Show meaningful message
+    // Priority 3: slotId is a string ID (not populated) - use it or fallback
+    if (booking.slotId && typeof booking.slotId === 'string') {
+      // Try to find the slot from the slots list
+      const foundSlot = slots.find(s => s._id === booking.slotId);
+      if (foundSlot) {
+        return {
+          title: foundSlot.title,
+          location: {
+            address: foundSlot.location?.address || 'Address not available',
+            city: foundSlot.location?.city || '',
+            state: foundSlot.location?.state || ''
+          },
+          isDeleted: false,
+          isFromSnapshot: false
+        };
+      }
+    }
+    
+    // Priority 4: Fallback - Show meaningful message
     return {
-      title: '📍 Parking Location (No Longer Available)',
+      title: '📍 Location Information Not Available',
       location: {
-        address: 'This parking location has been removed by the owner',
+        address: 'This parking location is no longer available or has been removed',
         city: '',
         state: ''
       },
@@ -80,7 +98,6 @@ const OwnerDashboard = () => {
     };
   };
 
-  // Geocode full address to get coordinates
   const geocodeAddress = async () => {
     const { address, city, state } = newSlot.location;
     const fullAddress = `${address}, ${city}, ${state}, India`;
@@ -173,7 +190,6 @@ const OwnerDashboard = () => {
       return;
     }
     
-    // Check if coordinates are detected
     if (!newSlot.location.coordinates) {
       toast.error('Please click "Detect Location" button first');
       return;
@@ -517,7 +533,7 @@ const OwnerDashboard = () => {
           )}
         </div>
 
-        {/* Recent Bookings */}
+        {/* Recent Bookings - ✅ FIXED with better fallback */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Bookings</h2>
           
@@ -531,12 +547,13 @@ const OwnerDashboard = () => {
               {bookings.slice(0, 10).map((booking) => {
                 const slotData = getSlotDisplay(booking);
                 const isDeleted = slotData.isDeleted;
+                const hasAddress = slotData.location?.address && slotData.location.address !== 'Address not available';
                 
                 return (
                   <div key={booking._id} className="border-b pb-3 flex justify-between items-center">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="font-semibold text-gray-800">
+                        <div className={`font-semibold ${isDeleted ? 'text-red-600' : 'text-gray-800'}`}>
                           {slotData.title}
                         </div>
                         {isDeleted && (
@@ -551,7 +568,7 @@ const OwnerDashboard = () => {
                         )}
                       </div>
                       <div className={`text-sm ${isDeleted ? 'text-red-500' : 'text-gray-600'}`}>
-                        {slotData.location.address}
+                        {hasAddress ? slotData.location.address : '📍 No location available'}
                       </div>
                       <div className="text-xs text-gray-500">
                         {booking.userId?.name || 'Unknown User'} • {booking.vehicleNumber || 'N/A'}

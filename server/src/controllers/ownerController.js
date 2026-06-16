@@ -84,19 +84,20 @@ const getOwnerBookings = async (req, res) => {
     const slots = await ParkingSlot.find({ ownerId: req.user.id });
     const slotIds = slots.map(slot => slot._id);
     
-    // ✅ Get bookings with slotSnapshot populated
+    // ✅ Get bookings with slotSnapshot and slotId populated
     const bookings = await Booking.find({ 
       slotId: { $in: slotIds } 
     })
     .populate('userId', 'name email phone')
-    .populate('slotId', 'title location pricing isActive')
+    .populate('slotId', 'title location pricing isActive availableSlots totalSlots')
     .sort({ createdAt: -1 });
     
-    // ✅ slotSnapshot is already in the Booking model
-    // The frontend will use slotSnapshot if slotId is deleted
+    // ✅ Ensure slotSnapshot is included (it's already in the schema)
+    // For older bookings without slotSnapshot, we'll add a fallback in frontend
     
     res.status(200).json({ success: true, data: bookings });
   } catch (error) {
+    console.error('Error fetching owner bookings:', error);
     res.status(500).json({ message: error.message });
   }
 };
