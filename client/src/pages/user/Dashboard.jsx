@@ -17,6 +17,41 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // ✅ Helper: Get slot display from snapshot or slotId
+  const getSlotDisplay = (booking) => {
+    // Priority 1: slotSnapshot (permanent storage from booking time)
+    if (booking.slotSnapshot && booking.slotSnapshot.title) {
+      return {
+        title: booking.slotSnapshot.title,
+        location: booking.slotSnapshot.location,
+        isDeleted: booking.slotSnapshot.isDeleted || false,
+        isFromSnapshot: true
+      };
+    }
+    
+    // Priority 2: slotId populated (if not deleted)
+    if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
+      return {
+        title: booking.slotId.title,
+        location: booking.slotId.location,
+        isDeleted: false,
+        isFromSnapshot: false
+      };
+    }
+    
+    // Priority 3: Fallback - Show meaningful message
+    return {
+      title: '📍 Location Removed',
+      location: {
+        address: 'This parking location is no longer available',
+        city: '',
+        state: ''
+      },
+      isDeleted: true,
+      isFromSnapshot: false
+    };
+  };
+
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -134,28 +169,48 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Bookings */}
+        {/* Recent Bookings - ✅ FIXED with slot display */}
         {recentBookings.length > 0 && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Bookings</h2>
             <div className="space-y-3">
-              {recentBookings.map((booking) => (
-                <div key={booking._id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-semibold text-gray-800">{booking.slotId?.title}</p>
-                    <p className="text-sm text-gray-500">{new Date(booking.startTime).toLocaleString()}</p>
+              {recentBookings.map((booking) => {
+                const slotData = getSlotDisplay(booking);
+                const isDeleted = slotData.isDeleted;
+                const hasAddress = slotData.location?.address && slotData.location.address !== 'This parking location is no longer available';
+                
+                return (
+                  <div key={booking._id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className={`font-semibold ${isDeleted ? 'text-red-600' : 'text-gray-800'}`}>
+                          {slotData.title}
+                        </p>
+                        {isDeleted && (
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                            Removed
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm ${isDeleted ? 'text-red-500' : 'text-gray-500'}`}>
+                        {hasAddress ? slotData.location.address : '📍 No location available'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(booking.startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-600">₹{booking.totalPrice}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                        booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">₹{booking.totalPrice}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <Link to="/my-bookings" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
               View all bookings →
