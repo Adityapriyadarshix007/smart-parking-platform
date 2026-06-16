@@ -45,17 +45,17 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 text-white mt-auto">
-      <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="container mx-auto px-4 py-8 min-[520px]:py-6 md:py-12">
         {/* Main Footer Grid - 4 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 min-[520px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 min-[520px]:gap-5">
           
           {/* Column 1: Brand Section with responsive padding */}
-          <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start min-[520px]:pl-3 min-[540px]:pl-4 lg:pl-0">
+          <div className="min-[520px]:col-span-2 lg:col-span-1 flex flex-col items-start lg:pl-0">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl md:text-3xl">🅿️</span>
               <span className="text-xl md:text-2xl font-bold">SmartPark</span>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+            <p className="text-gray-400 text-sm min-[520px]:text-xs md:text-sm leading-relaxed mb-4">
               India's leading smart parking platform. Find, book, and manage parking spaces with ease. Save time, reduce stress, and park smarter.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -80,7 +80,7 @@ const Footer = () => {
           {/* Column 2: Company Links */}
           <div>
             <h3 className="font-semibold text-base mb-3 text-gray-300">Company</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-2 min-[520px]:space-y-1.5 md:space-y-2">
               {footerSections.company.links.map((link, idx) => (
                 <li key={idx}>
                   <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm">
@@ -108,7 +108,7 @@ const Footer = () => {
           {/* Column 4: Contact Info */}
           <div>
             <h3 className="font-semibold text-base mb-3 text-gray-300">Contact Us</h3>
-            <div className="space-y-3">
+            <div className="space-y-3 min-[520px]:space-y-2 md:space-y-3">
               <a 
                 href="https://maps.google.com/?q=DLF+Cyber+City+Gurugram+India"
                 target="_blank"
