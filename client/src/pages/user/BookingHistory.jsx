@@ -89,27 +89,9 @@ const BookingHistory = () => {
     return booking.status;
   };
 
-  // ✅ IMPROVED: Get slot display from snapshot FIRST (permanent storage)
+  // ✅ FIXED: Get slot display with proper deletion detection
   const getSlotDisplay = (booking) => {
-    // ✅ Priority 1: slotSnapshot (permanent stored data from booking time)
-    // This is the most reliable source since it never gets deleted
-    if (booking.slotSnapshot && booking.slotSnapshot.title) {
-      return {
-        title: booking.slotSnapshot.title,
-        location: {
-          address: booking.slotSnapshot.location?.address || 'Address not available',
-          city: booking.slotSnapshot.location?.city || '',
-          state: booking.slotSnapshot.location?.state || '',
-          pincode: booking.slotSnapshot.location?.pincode || '',
-          landmark: booking.slotSnapshot.location?.landmark || ''
-        },
-        pricing: booking.slotSnapshot.pricing,
-        isFromSnapshot: true,
-        isDeleted: booking.slotSnapshot.isDeleted || false
-      };
-    }
-    
-    // ✅ Priority 2: slotId is populated with full slot object (if not deleted)
+    // ✅ Priority 1: slotId is populated with full slot object (slot exists)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return {
         title: booking.slotId.title,
@@ -122,7 +104,31 @@ const BookingHistory = () => {
         },
         pricing: booking.slotId.pricing,
         isFromSnapshot: false,
-        isDeleted: false
+        isDeleted: false,
+        slotExists: true
+      };
+    }
+    
+    // ✅ Priority 2: slotSnapshot (permanent storage)
+    // Only use snapshot if slotId is null OR slotId is a string (not populated)
+    if (booking.slotSnapshot && booking.slotSnapshot.title) {
+      // Check if slotId exists and is not null
+      const hasValidSlotId = booking.slotId && typeof booking.slotId !== 'string';
+      
+      return {
+        title: booking.slotSnapshot.title,
+        location: {
+          address: booking.slotSnapshot.location?.address || 'Address not available',
+          city: booking.slotSnapshot.location?.city || '',
+          state: booking.slotSnapshot.location?.state || '',
+          pincode: booking.slotSnapshot.location?.pincode || '',
+          landmark: booking.slotSnapshot.location?.landmark || ''
+        },
+        pricing: booking.slotSnapshot.pricing,
+        isFromSnapshot: true,
+        // ✅ Only mark as deleted if isDeleted is explicitly true AND no valid slotId
+        isDeleted: (booking.slotSnapshot.isDeleted === true) && !hasValidSlotId,
+        slotExists: hasValidSlotId
       };
     }
     
@@ -135,7 +141,8 @@ const BookingHistory = () => {
           city: booking.slotDisplay.location?.city || ''
         },
         isFromSnapshot: false,
-        isDeleted: false
+        isDeleted: false,
+        slotExists: false
       };
     }
     
@@ -147,12 +154,33 @@ const BookingHistory = () => {
         city: ''
       },
       isFromSnapshot: false,
-      isDeleted: true
+      isDeleted: true,
+      slotExists: false
     };
   };
 
+  // ✅ FIXED: Only show Archived if slot is truly deleted
   const isFromSnapshot = (booking) => {
-    return booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId;
+    // If slotId exists and is populated (object with title), it's NOT archived
+    if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
+      return false;
+    }
+    
+    // If slotId is a string ID (not populated), it might still exist
+    // Don't show archived for unpopulated slotId - it's an API issue
+    if (booking.slotId && typeof booking.slotId === 'string') {
+      return false;
+    }
+    
+    // Only show archived if:
+    // 1. slotSnapshot exists with title
+    // 2. slotId is null
+    // 3. isDeleted is explicitly true in the snapshot
+    if (booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId) {
+      return booking.slotSnapshot.isDeleted === true;
+    }
+    
+    return false;
   };
 
   const getBookingsEndpoint = (role) => {
@@ -408,8 +436,9 @@ For support: support@smartpark.com | +91 98765 43210
             {bookings.map((booking, index) => {
               const displayStatus = getDisplayStatus(booking);
               const slotData = getSlotDisplay(booking);
-              const isSnapshot = slotData.isFromSnapshot || isFromSnapshot(booking);
-              const isDeleted = slotData.isDeleted || (booking.slotSnapshot?.isDeleted);
+              // ✅ Fixed: Only show archived if truly deleted
+              const isArchived = isFromSnapshot(booking);
+              const isDeleted = slotData.isDeleted;
               
               return (
                 <motion.div
@@ -439,14 +468,15 @@ For support: support@smartpark.com | +91 98765 43210
                           <h3 className="text-xl font-bold text-gray-800 mb-1">
                             📍 {slotData.title || 'Parking Location'}
                           </h3>
-                          {isDeleted && (
+                          {/* ✅ Only show Archived if truly deleted */}
+                          {isArchived && (
                             <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
-                              Deleted
+                              Archived
                             </span>
                           )}
-                          {isSnapshot && !isDeleted && (
-                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                              Archived
+                          {isDeleted && !isArchived && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                              Deleted
                             </span>
                           )}
                         </div>
@@ -552,7 +582,7 @@ For support: support@smartpark.com | +91 98765 43210
                             ⚠️ This parking location has been removed from the platform. This is your permanent booking record.
                           </div>
                         )}
-                        {isSnapshot && !isDeleted && (
+                        {isArchived && !isDeleted && (
                           <div className="mt-3 p-2 bg-yellow-50 rounded-lg text-xs text-yellow-700">
                             ℹ️ This parking space is no longer available on the platform. This is your permanent booking record.
                           </div>
