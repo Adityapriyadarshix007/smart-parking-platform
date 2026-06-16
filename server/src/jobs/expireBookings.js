@@ -2,27 +2,25 @@ const cron = require('node-cron');
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 
-// ✅ Helper: Get current time in IST
+// ✅ Helper: Get current time (matches database IST format)
 const getISTNow = () => {
-  const now = new Date();
-  now.setHours(now.getHours() + 5);
-  now.setMinutes(now.getMinutes() + 30);
-  return now;
+  // Database stores IST, so we use current time directly
+  // No need to add offset since DB is already IST
+  return new Date();
 };
 
-// ✅ Helper: Convert to IST
+// ✅ Helper: Convert to IST (kept for backward compatibility)
 const convertToIST = (date) => {
   if (!date) return date;
-  const d = new Date(date);
-  d.setHours(d.getHours() + 5);
-  d.setMinutes(d.getMinutes() + 30);
-  return d;
+  return new Date(date);
 };
 
 // ✅ Extract the processing logic into a reusable function
 const processExpiredBookings = async () => {
   try {
     const nowIST = getISTNow();
+    
+    console.log(`🕐 Current time for expiry check: ${nowIST.toISOString()}`);
     
     // Find expired bookings (endTime is in the past and status is confirmed or active)
     const expiredBookings = await Booking.find({
@@ -34,7 +32,7 @@ const processExpiredBookings = async () => {
       return { processed: 0, restored: 0, errors: 0 };
     }
     
-    console.log(`📊 Found ${expiredBookings.length} expired bookings (IST)`);
+    console.log(`📊 Found ${expiredBookings.length} expired bookings`);
     
     let restoredCount = 0;
     let errorCount = 0;
@@ -45,7 +43,7 @@ const processExpiredBookings = async () => {
         booking.status = 'expired';
         booking.completedAt = nowIST;
         await booking.save();
-        console.log(`✅ Marked booking ${booking._id} as expired`);
+        console.log(`✅ Marked booking ${booking.receiptNumber} as expired`);
         
         // ✅ RESTORE AVAILABLE SLOTS for expired booking
         if (booking.slotId) {
@@ -84,7 +82,7 @@ const processExpiredBookings = async () => {
 const expireBookings = () => {
   // ✅ Run every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
-    console.log('🕐 Running booking expiration check at (IST):', getISTNow().toISOString());
+    console.log('🕐 Running booking expiration check at:', new Date().toISOString());
     await processExpiredBookings();
   });
   
