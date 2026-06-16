@@ -49,8 +49,8 @@ const Footer = () => {
         {/* Main Footer Grid - 4 columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           
-          {/* Column 1: Brand Section */}
-          <div>
+          {/* Column 1: Brand Section with responsive padding */}
+          <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start min-[520px]:pl-3 min-[540px]:pl-4 lg:pl-0">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl md:text-3xl">🅿️</span>
               <span className="text-xl md:text-2xl font-bold">SmartPark</span>
@@ -105,7 +105,7 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Column 4: Contact Info (Right Side) */}
+          {/* Column 4: Contact Info */}
           <div>
             <h3 className="font-semibold text-base mb-3 text-gray-300">Contact Us</h3>
             <div className="space-y-3">
