@@ -45,12 +45,12 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 text-white mt-auto">
-      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
-        {/* Main Footer Grid - 4 columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        {/* Main Footer Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           
           {/* Column 1: Brand Section with responsive padding */}
-          <div className="md:col-span-2 lg:col-span-1 flex flex-col items-start lg:pl-0">
+          <div className="md:col-span-2 lg:col-span-1 flex flex-col items-start min-[520px]:pl-3 min-[540px]:pl-4 lg:pl-0">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl md:text-3xl">🅿️</span>
               <span className="text-xl md:text-2xl font-bold">SmartPark</span>
@@ -116,9 +116,7 @@ const Footer = () => {
                 className="flex items-start gap-3 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
                 <span className="text-lg">📍</span>
-                <span className="text-sm break-words leading-relaxed">
-  DLF Cyber City, Gurugram, India
-</span>
+                <span className="text-sm">DLF Cyber City, Gurugram, India</span>
               </a>
               <a 
                 href="tel:+919876543210"
@@ -132,9 +130,7 @@ const Footer = () => {
                 className="flex items-center gap-3 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
                 <span className="text-lg">📧</span>
-                <span className="text-sm break-all">
-  support@smartpark.com
-</span>
+                <span className="text-sm">support@smartpark.com</span>
               </a>
             </div>
           </div>
