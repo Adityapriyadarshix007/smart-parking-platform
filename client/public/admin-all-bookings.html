@@ -6,6 +6,7 @@
     <title>SmartPark - All Bookings</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- ✅ Toast CSS -->
     <style>
         * {
             margin: 0;
@@ -272,6 +273,17 @@
             flex-wrap: wrap;
         }
 
+        /* ✅ Deleted slot badge */
+        .deleted-badge {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .bookings-table th, .bookings-table td { padding: 0.75rem; }
@@ -343,8 +355,40 @@
                 day: 'numeric', 
                 month: 'short', 
                 hour: '2-digit', 
-                minute: '2-digit' 
+                minute: '2-digit',
+                timeZone: 'Asia/Kolkata'
             });
+        }
+        
+        // ✅ Get slot display from snapshot or slotId
+        function getSlotDisplay(booking) {
+            // Priority 1: slotSnapshot (permanent storage)
+            if (booking.slotSnapshot && booking.slotSnapshot.title) {
+                return {
+                    title: booking.slotSnapshot.title,
+                    city: booking.slotSnapshot.location?.city || '',
+                    isDeleted: booking.slotSnapshot.isDeleted || false,
+                    isFromSnapshot: true
+                };
+            }
+            
+            // Priority 2: slotId populated
+            if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
+                return {
+                    title: booking.slotId.title,
+                    city: booking.slotId.location?.city || '',
+                    isDeleted: false,
+                    isFromSnapshot: false
+                };
+            }
+            
+            // Fallback
+            return {
+                title: '📍 Location Removed',
+                city: '',
+                isDeleted: true,
+                isFromSnapshot: false
+            };
         }
         
         async function fetchBookings() {
@@ -384,11 +428,12 @@
         
         function displayBookings() {
             const search = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allBookings.filter(b => 
-                b.userId?.name?.toLowerCase().includes(search) || 
-                b.slotId?.title?.toLowerCase().includes(search) ||
-                b.vehicleNumber?.toLowerCase().includes(search)
-            );
+            const filtered = allBookings.filter(b => {
+                const slotData = getSlotDisplay(b);
+                return (b.userId?.name?.toLowerCase().includes(search) || 
+                        slotData.title?.toLowerCase().includes(search) ||
+                        b.vehicleNumber?.toLowerCase().includes(search));
+            });
             
             document.getElementById('recordCount').innerHTML = `Showing ${filtered.length} of ${allBookings.length} bookings`;
             
@@ -396,9 +441,13 @@
             tbody.innerHTML = '';
             
             filtered.forEach(b => {
+                const slotData = getSlotDisplay(b);
                 const statusClass = b.status === 'confirmed' ? 'status-confirmed' : 
                                   b.status === 'pending' ? 'status-pending' : 'status-cancelled';
                 const statusText = b.status.charAt(0).toUpperCase() + b.status.slice(1);
+                
+                // ✅ Show deleted badge if slot was deleted
+                const deletedBadge = slotData.isDeleted ? '<span class="deleted-badge">Deleted</span>' : '';
                 
                 tbody.innerHTML += `
                     <tr>
@@ -407,8 +456,10 @@
                             <div style="font-size: 0.7rem; color: #6b7280;">${b.userId?.email || ''}</div>
                         </td>
                         <td>
-                            <div style="font-weight: 500;">${b.slotId?.title || 'N/A'}</div>
-                            <div style="font-size: 0.7rem; color: #6b7280;">${b.slotId?.location?.city || ''}</div>
+                            <div style="font-weight: 500; ${slotData.isDeleted ? 'color: #dc2626;' : ''}">
+                                ${slotData.title || 'N/A'} ${deletedBadge}
+                            </div>
+                            <div style="font-size: 0.7rem; color: #6b7280;">${slotData.city || ''}</div>
                         </td>
                         <td>${b.vehicleNumber || 'N/A'}</td>
                         <td>

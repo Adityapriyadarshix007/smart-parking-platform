@@ -89,19 +89,65 @@ const BookingHistory = () => {
     return booking.status;
   };
 
+  // ✅ IMPROVED: Get slot display from snapshot FIRST (permanent storage)
   const getSlotDisplay = (booking) => {
+    // ✅ Priority 1: slotSnapshot (permanent stored data from booking time)
+    // This is the most reliable source since it never gets deleted
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
-      return booking.slotSnapshot;
+      return {
+        title: booking.slotSnapshot.title,
+        location: {
+          address: booking.slotSnapshot.location?.address || 'Address not available',
+          city: booking.slotSnapshot.location?.city || '',
+          state: booking.slotSnapshot.location?.state || '',
+          pincode: booking.slotSnapshot.location?.pincode || '',
+          landmark: booking.slotSnapshot.location?.landmark || ''
+        },
+        pricing: booking.slotSnapshot.pricing,
+        isFromSnapshot: true,
+        isDeleted: booking.slotSnapshot.isDeleted || false
+      };
     }
+    
+    // ✅ Priority 2: slotId is populated with full slot object (if not deleted)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
-      return booking.slotId;
+      return {
+        title: booking.slotId.title,
+        location: {
+          address: booking.slotId.location?.address || 'Address not available',
+          city: booking.slotId.location?.city || '',
+          state: booking.slotId.location?.state || '',
+          pincode: booking.slotId.location?.pincode || '',
+          landmark: booking.slotId.location?.landmark || ''
+        },
+        pricing: booking.slotId.pricing,
+        isFromSnapshot: false,
+        isDeleted: false
+      };
     }
-    return { 
-      title: '📍 Parking Location', 
-      location: { 
-        address: 'Location information not available', 
-        city: '' 
-      } 
+    
+    // ✅ Priority 3: slotDisplay (legacy field)
+    if (booking.slotDisplay && booking.slotDisplay.title) {
+      return {
+        title: booking.slotDisplay.title,
+        location: {
+          address: booking.slotDisplay.location?.address || 'Address not available',
+          city: booking.slotDisplay.location?.city || ''
+        },
+        isFromSnapshot: false,
+        isDeleted: false
+      };
+    }
+    
+    // ✅ Priority 4: Fallback - show meaningful message
+    return {
+      title: '📍 Parking Location (Removed)',
+      location: {
+        address: 'This parking location is no longer available on the platform',
+        city: ''
+      },
+      isFromSnapshot: false,
+      isDeleted: true
     };
   };
 
@@ -209,10 +255,11 @@ const BookingHistory = () => {
 
   // ✅ Open cancellation dialog
   const openCancelDialog = (booking) => {
+    const slotData = getSlotDisplay(booking);
     setCancelDialog({
       isOpen: true,
       bookingId: booking._id,
-      bookingTitle: getSlotDisplay(booking).title || 'Parking Slot',
+      bookingTitle: slotData.title || 'Parking Slot',
       reason: '',
       isProcessing: false
     });
@@ -361,7 +408,8 @@ For support: support@smartpark.com | +91 98765 43210
             {bookings.map((booking, index) => {
               const displayStatus = getDisplayStatus(booking);
               const slotData = getSlotDisplay(booking);
-              const isSnapshot = isFromSnapshot(booking);
+              const isSnapshot = slotData.isFromSnapshot || isFromSnapshot(booking);
+              const isDeleted = slotData.isDeleted || (booking.slotSnapshot?.isDeleted);
               
               return (
                 <motion.div
@@ -389,18 +437,28 @@ For support: support@smartpark.com | +91 98765 43210
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-xl font-bold text-gray-800 mb-1">
-                            {slotData.title || '📍 Parking Location'}
+                            📍 {slotData.title || 'Parking Location'}
                           </h3>
-                          {isSnapshot && (
+                          {isDeleted && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                              Deleted
+                            </span>
+                          )}
+                          {isSnapshot && !isDeleted && (
                             <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                               Archived
                             </span>
                           )}
                         </div>
-                        <p className="text-gray-600 text-sm">
+                        <p className={`text-sm ${isDeleted ? 'text-red-500' : 'text-gray-600'}`}>
                           {slotData.location?.address || 'Address information not available'}
                         </p>
                         <p className="text-gray-500 text-xs mt-1">{slotData.location?.city || ''}</p>
+                        {isDeleted && (
+                          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                            <span>⚠️</span> This parking location has been removed from the platform
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(displayStatus)}`}>
@@ -489,9 +547,14 @@ For support: support@smartpark.com | +91 98765 43210
                             {formatDate(booking.endTime)}
                           </div>
                         </div>
-                        {isSnapshot && (
+                        {isDeleted && (
+                          <div className="mt-3 p-2 bg-red-50 rounded-lg text-xs text-red-700">
+                            ⚠️ This parking location has been removed from the platform. This is your permanent booking record.
+                          </div>
+                        )}
+                        {isSnapshot && !isDeleted && (
                           <div className="mt-3 p-2 bg-yellow-50 rounded-lg text-xs text-yellow-700">
-                            ℹ️ This parking space is no longer available on the platform. This is your booking record.
+                            ℹ️ This parking space is no longer available on the platform. This is your permanent booking record.
                           </div>
                         )}
                       </motion.div>

@@ -324,7 +324,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Bookings - ✅ FIXED: Redirects to admin-all-bookings.html */}
+          {/* Recent Bookings */}
           <div className="bg-white rounded-xl shadow-md p-5 md:p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Bookings</h2>
@@ -339,7 +339,13 @@ const AdminDashboard = () => {
               {recentBookings.slice(0, 5).map((booking) => (
                 <div key={booking._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
-                    <div className="font-medium text-gray-800">{booking.slotId?.title || 'Parking Slot'}</div>
+                    {/* ✅ Use slotSnapshot if available */}
+                    <div className="font-medium text-gray-800">
+                      {booking.slotSnapshot?.title || booking.slotId?.title || 'Parking Slot'}
+                      {booking.slotSnapshot && !booking.slotId && (
+                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Archived</span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500">{booking.userId?.name || 'Unknown'}</div>
                   </div>
                   <div className="text-right">
