@@ -23,6 +23,7 @@ const BookingHistory = () => {
   const lastFetchTime = useRef(0);
   const abortControllerRef = useRef(null);
 
+  // ✅ ALL DATES IN IST
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -32,7 +33,8 @@ const BookingHistory = () => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -42,7 +44,8 @@ const BookingHistory = () => {
     return date.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -52,7 +55,22 @@ const BookingHistory = () => {
     return date.toLocaleString('en-IN', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    });
+  };
+
+  // ✅ Receipt uses IST
+  const formatDateIST = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -242,7 +260,7 @@ const BookingHistory = () => {
 
 Receipt Number: ${booking.receiptNumber || 'N/A'}
 Booking ID: ${booking._id.slice(-8).toUpperCase()}
-Date: ${formatDate(booking.createdAt)}
+Date: ${formatDateIST(booking.createdAt)}
 
 ----------------------------------------
 PARKING DETAILS
@@ -258,7 +276,7 @@ Vehicle Number: ${booking.vehicleNumber}
 Vehicle Type: ${booking.vehicleType === '4-wheeler' ? '4 Wheeler (Car/SUV)' : '2 Wheeler (Bike/Scooter)'}
 
 ----------------------------------------
-TIME DETAILS
+TIME DETAILS (IST)
 ----------------------------------------
 Date: ${formatCompactDate(booking.startTime)}
 Start Time: ${formatTime(booking.startTime)}
@@ -398,7 +416,7 @@ For support: support@smartpark.com | +91 98765 43210
                         <div className="text-xs text-gray-500 capitalize">{booking.vehicleType === '4-wheeler' ? 'Car/SUV' : 'Bike/Scooter'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date & Time</div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date & Time (IST)</div>
                         <div className="font-semibold text-gray-800">{formatCompactDate(booking.startTime)}</div>
                         <div className="text-xs text-gray-500">
                           {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
@@ -447,7 +465,7 @@ For support: support@smartpark.com | +91 98765 43210
                             <span className="font-mono">{booking.receiptNumber || `SPRK${booking._id.slice(-8).toUpperCase()}`}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Booking Date:</span>{' '}
+                            <span className="text-gray-500">Booking Date (IST):</span>{' '}
                             {formatDate(booking.createdAt)}
                           </div>
                           <div>
@@ -463,11 +481,11 @@ For support: support@smartpark.com | +91 98765 43210
                             {slotData.location?.address || 'Address not available'}, {slotData.location?.city || ''}
                           </div>
                           <div className="md:col-span-2">
-                            <span className="text-gray-500">Start Time:</span>{' '}
+                            <span className="text-gray-500">Start Time (IST):</span>{' '}
                             {formatDate(booking.startTime)}
                           </div>
                           <div className="md:col-span-2">
-                            <span className="text-gray-500">End Time:</span>{' '}
+                            <span className="text-gray-500">End Time (IST):</span>{' '}
                             {formatDate(booking.endTime)}
                           </div>
                         </div>

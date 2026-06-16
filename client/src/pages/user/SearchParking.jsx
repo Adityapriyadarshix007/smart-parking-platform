@@ -55,6 +55,7 @@ const SearchParking = () => {
     setMapReady(true);
   }, []);
 
+  // ✅ FORMAT DATE IN IST FOR DISPLAY
   const formatDateTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -64,7 +65,8 @@ const SearchParking = () => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -221,17 +223,7 @@ const SearchParking = () => {
     setLoading(false);
   };
 
-  // ✅ Function to update a single slot's available count locally
-  const updateSlotAvailability = (slotId, newAvailableCount) => {
-    setParkingSlots(prevSlots => 
-      prevSlots.map(slot => 
-        slot._id === slotId 
-          ? { ...slot, availableSlots: newAvailableCount }
-          : slot
-      )
-    );
-  };
-
+  // Debounced radius change handler
   const handleRadiusChange = (newRadius) => {
     setSearchParams(prev => ({ ...prev, radius: newRadius, page: 1 }));
     
@@ -246,6 +238,7 @@ const SearchParking = () => {
     }, 500);
   };
 
+  // Debounced vehicle type change handler
   const handleVehicleTypeChange = (type) => {
     setSearchParams(prev => ({ ...prev, vehicleType: type, page: 1 }));
     
@@ -260,6 +253,7 @@ const SearchParking = () => {
     }, 500);
   };
 
+  // Calculate total price helper
   const calculateTotalPrice = (slot, startTime, endTime) => {
     if (!slot || !startTime || !endTime) return 0;
     const start = new Date(startTime);
@@ -269,6 +263,7 @@ const SearchParking = () => {
     return diffHours * hourlyRate;
   };
 
+  // Check availability before booking
   const checkAvailability = async (slotId, startTime, endTime) => {
     try {
       const token = localStorage.getItem('token');
@@ -285,6 +280,17 @@ const SearchParking = () => {
       console.error('Availability check error:', error);
       return { available: false, message: 'Could not check availability' };
     }
+  };
+
+  // Function to update a single slot's available count locally
+  const updateSlotAvailability = (slotId, newAvailableCount) => {
+    setParkingSlots(prevSlots => 
+      prevSlots.map(slot => 
+        slot._id === slotId 
+          ? { ...slot, availableSlots: newAvailableCount }
+          : slot
+      )
+    );
   };
 
   const loadRazorpayScript = () => {
@@ -367,7 +373,7 @@ const SearchParking = () => {
     }
   };
 
-  // ✅ FIXED: Added totalPrice to the booking request
+  // ✅ FIXED: Send time as UTC to backend (toISOString)
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -419,20 +425,23 @@ const SearchParking = () => {
       return;
     }
     
-    // ✅ Calculate total price
+    // Calculate total price
     const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
     
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ FIXED: Added totalPrice field
+      // ✅ CONVERT TO UTC BEFORE SENDING TO BACKEND
+      const startUTC = new Date(bookingDetails.startTime);
+      const endUTC = new Date(bookingDetails.endTime);
+      
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
-        startTime: bookingDetails.startTime,
-        endTime: bookingDetails.endTime,
+        startTime: startUTC.toISOString(),  // ✅ Send as UTC
+        endTime: endUTC.toISOString(),      // ✅ Send as UTC
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
         vehicleType: bookingDetails.vehicleType,
-        totalPrice: totalPrice  // ✅ CRITICAL FIX: Added missing totalPrice
+        totalPrice: totalPrice
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -440,10 +449,10 @@ const SearchParking = () => {
       if (response.data.success) {
         const booking = response.data.data;
         
-        // ✅ Update the slot's available count locally (decrease by 1)
+        // Update the slot's available count locally (decrease by 1)
         updateSlotAvailability(selectedSlot._id, selectedSlot.availableSlots - 1);
         
-        // ✅ Also update the selectedSlot state
+        // Also update the selectedSlot state
         setSelectedSlot(prev => ({ ...prev, availableSlots: prev.availableSlots - 1 }));
         
         setShowBookingModal(false);
@@ -452,17 +461,7 @@ const SearchParking = () => {
       }
     } catch (error) {
       console.error('Booking error:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to create booking';
-      toast.error(errorMsg);
-      
-      // If error is about no available slots, refresh the search results
-      if (errorMsg.toLowerCase().includes('no available') || errorMsg.toLowerCase().includes('already booked')) {
-        if (userLocation) {
-          setTimeout(() => {
-            searchParking(userLocation.lat, userLocation.lng);
-          }, 2000);
-        }
-      }
+      toast.error(error.response?.data?.message || 'Failed to create booking');
     } finally {
       setBookingLoading(false);
     }
@@ -520,6 +519,7 @@ const SearchParking = () => {
     .filter(slot => slot.location && slot.location.coordinates)
     .map(slot => [slot.location.coordinates[1], slot.location.coordinates[0]]);
 
+  // Cleanup debounce timeouts on unmount
   useEffect(() => {
     return () => {
       if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current);
@@ -530,6 +530,7 @@ const SearchParking = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
+        {/* Search Filters */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <div>
@@ -617,7 +618,9 @@ const SearchParking = () => {
           )}
         </div>
 
+        {/* Results Section */}
         <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left Panel - Parking List */}
           <div>
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -700,6 +703,7 @@ const SearchParking = () => {
             </div>
           </div>
 
+          {/* Right Panel - Map */}
           <div className="bg-white rounded-xl shadow-lg p-4">
             <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
               <span>🗺️</span> Map View
@@ -737,6 +741,7 @@ const SearchParking = () => {
           </div>
         </div>
 
+        {/* Booking Modal */}
         {showBookingModal && selectedSlot && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div 
@@ -830,6 +835,7 @@ const SearchParking = () => {
           </div>
         )}
 
+        {/* Phone Verification Modal */}
         <PhoneVerificationModal
           isOpen={showPhoneModal}
           onClose={() => {
