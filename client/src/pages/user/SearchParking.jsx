@@ -64,7 +64,8 @@ const SearchParking = () => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -267,8 +268,8 @@ const SearchParking = () => {
       const token = localStorage.getItem('token');
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/check-availability', {
         slotId,
-        startTime,
-        endTime
+        startTime: startTime.toISOString ? startTime.toISOString() : startTime,
+        endTime: endTime.toISOString ? endTime.toISOString() : endTime
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -339,11 +340,10 @@ const SearchParking = () => {
           }, { headers: { Authorization: `Bearer ${token}` } });
 
           if (verifyResponse.data.success) {
-            // ✅ FIXED: Send paymentId and orderId to confirmBooking
             await axios.put('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/confirm', {
               bookingId: booking._id,
-              paymentId: response.razorpay_payment_id,  // ✅ Add this
-              orderId: response.razorpay_order_id       // ✅ Add this
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id
             }, { headers: { Authorization: `Bearer ${token}` } });
             
             toast.success('Payment successful! Booking confirmed.');
@@ -374,7 +374,7 @@ const SearchParking = () => {
     }
   };
 
-  // FIXED: Added totalPrice and availability check to the booking request
+  // ✅ FIXED: Convert time to UTC before sending
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -410,7 +410,11 @@ const SearchParking = () => {
     // Check availability first
     toast.loading('Checking availability...', { id: 'availabilityCheck' });
     
-    const availability = await checkAvailability(selectedSlot._id, bookingDetails.startTime, bookingDetails.endTime);
+    const availability = await checkAvailability(
+      selectedSlot._id, 
+      start.toISOString(),  // ✅ Convert to UTC
+      end.toISOString()     // ✅ Convert to UTC
+    );
     
     toast.dismiss('availabilityCheck');
     
@@ -427,15 +431,16 @@ const SearchParking = () => {
     }
     
     // Calculate total price
-    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
+    const totalPrice = calculateTotalPrice(selectedSlot, start, end);
     
     try {
       const token = localStorage.getItem('token');
       
+      // ✅ Send times in ISO format (UTC) to backend
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
-        startTime: bookingDetails.startTime,
-        endTime: bookingDetails.endTime,
+        startTime: start.toISOString(),  // ✅ Convert to UTC
+        endTime: end.toISOString(),      // ✅ Convert to UTC
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
         vehicleType: bookingDetails.vehicleType,
         totalPrice: totalPrice
