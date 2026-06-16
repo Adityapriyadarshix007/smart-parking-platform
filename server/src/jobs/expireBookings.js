@@ -2,17 +2,21 @@ const cron = require('node-cron');
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 
-// ✅ Helper: Get current time (matches database IST format)
+// ✅ Helper: Get current time in IST (adds +5:30 offset)
 const getISTNow = () => {
-  // Database stores IST, so we use current time directly
-  // No need to add offset since DB is already IST
-  return new Date();
+  const now = new Date();
+  now.setHours(now.getHours() + 5);
+  now.setMinutes(now.getMinutes() + 30);
+  return now;
 };
 
-// ✅ Helper: Convert to IST (kept for backward compatibility)
+// ✅ Helper: Convert any date to IST
 const convertToIST = (date) => {
   if (!date) return date;
-  return new Date(date);
+  const d = new Date(date);
+  d.setHours(d.getHours() + 5);
+  d.setMinutes(d.getMinutes() + 30);
+  return d;
 };
 
 // ✅ Extract the processing logic into a reusable function
@@ -20,7 +24,7 @@ const processExpiredBookings = async () => {
   try {
     const nowIST = getISTNow();
     
-    console.log(`🕐 Current time for expiry check: ${nowIST.toISOString()}`);
+    console.log(`🕐 Current IST time for expiry check: ${nowIST.toISOString()}`);
     
     // Find expired bookings (endTime is in the past and status is confirmed or active)
     const expiredBookings = await Booking.find({
@@ -82,7 +86,7 @@ const processExpiredBookings = async () => {
 const expireBookings = () => {
   // ✅ Run every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
-    console.log('🕐 Running booking expiration check at:', new Date().toISOString());
+    console.log('🕐 Running booking expiration check at IST:', getISTNow().toISOString());
     await processExpiredBookings();
   });
   
