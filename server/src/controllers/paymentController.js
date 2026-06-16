@@ -38,13 +38,23 @@ const createOrder = async (req, res) => {
   }
 };
 
-// Verify payment
+// ✅ FIXED: Verify payment and ensure paymentId is saved
 const verifyPayment = async (req, res) => {
   try {
     const { order_id, payment_id, signature, bookingId } = req.body;
     
     console.log('Verifying payment:', { order_id, payment_id, bookingId });
     
+    // ✅ Validate required fields
+    if (!bookingId) {
+      console.error('❌ Booking ID is missing in request');
+      return res.status(400).json({
+        success: false,
+        message: 'Booking ID is required'
+      });
+    }
+    
+    // Verify signature
     const body = order_id + "|" + payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -54,21 +64,40 @@ const verifyPayment = async (req, res) => {
     const isAuthentic = expectedSignature === signature;
     
     if (isAuthentic) {
+      // ✅ Find and update booking with payment ID
       const booking = await Booking.findById(bookingId);
-      if (booking) {
-        booking.paymentStatus = 'paid';
-        booking.paymentId = payment_id;
-        booking.orderId = order_id;
-        await booking.save();
-        console.log('Booking updated with payment:', bookingId);
+      
+      if (!booking) {
+        console.error('❌ Booking not found:', bookingId);
+        return res.status(404).json({
+          success: false,
+          message: 'Booking not found'
+        });
       }
+      
+      // ✅ Update booking with payment details
+      booking.paymentStatus = 'paid';
+      booking.paymentId = payment_id;  // ✅ Store Razorpay payment ID
+      booking.orderId = order_id;
+      booking.status = 'confirmed';
+      
+      await booking.save();
+      
+      console.log('✅ Booking updated with payment ID:', payment_id);
+      console.log('✅ Booking ID:', bookingId);
+      console.log('✅ Receipt Number:', booking.receiptNumber);
       
       res.status(200).json({
         success: true,
-        message: "Payment verified successfully"
+        message: "Payment verified successfully",
+        data: { 
+          booking,
+          paymentId: payment_id,
+          receiptNumber: booking.receiptNumber
+        }
       });
     } else {
-      console.log('Payment verification failed - signature mismatch');
+      console.log('❌ Payment verification failed - signature mismatch');
       res.status(400).json({
         success: false,
         message: "Payment verification failed"
@@ -100,6 +129,3 @@ const getRazorpayKey = async (req, res) => {
 };
 
 module.exports = { createOrder, verifyPayment, getRazorpayKey };
-
-// Update verifyPayment to ensure receipt is shown
-// The existing verifyPayment already saves the booking with receipt
