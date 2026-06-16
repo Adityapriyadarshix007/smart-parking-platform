@@ -70,12 +70,14 @@ const SearchParking = () => {
     });
   };
 
+  // ✅ FIXED: Format for input - use local time string that matches IST
   const formatForInput = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
+    // This creates a local time string that the input will treat as local
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
@@ -373,7 +375,7 @@ const SearchParking = () => {
     }
   };
 
-  // ✅ FIXED: Send time as UTC to backend (toISOString)
+  // ✅ FIXED: Proper timezone handling for booking
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -409,7 +411,12 @@ const SearchParking = () => {
     // Check availability first
     toast.loading('Checking availability...', { id: 'availabilityCheck' });
     
-    const availability = await checkAvailability(selectedSlot._id, bookingDetails.startTime, bookingDetails.endTime);
+    // ✅ Send times in ISO format (UTC) for backend comparison
+    const availability = await checkAvailability(
+      selectedSlot._id, 
+      start.toISOString(), 
+      end.toISOString()
+    );
     
     toast.dismiss('availabilityCheck');
     
@@ -426,19 +433,16 @@ const SearchParking = () => {
     }
     
     // Calculate total price
-    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
+    const totalPrice = calculateTotalPrice(selectedSlot, start, end);
     
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ CONVERT TO UTC BEFORE SENDING TO BACKEND
-      const startUTC = new Date(bookingDetails.startTime);
-      const endUTC = new Date(bookingDetails.endTime);
-      
+      // ✅ Send times in ISO format (UTC) to backend - backend stores as IST
       const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings', {
         slotId: selectedSlot._id,
-        startTime: startUTC.toISOString(),  // ✅ Send as UTC
-        endTime: endUTC.toISOString(),      // ✅ Send as UTC
+        startTime: start.toISOString(),  // ✅ Send as UTC
+        endTime: end.toISOString(),      // ✅ Send as UTC
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
         vehicleType: bookingDetails.vehicleType,
         totalPrice: totalPrice
