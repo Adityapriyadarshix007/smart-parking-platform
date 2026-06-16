@@ -45,24 +45,22 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 text-white mt-auto w-full">
-      {/* ✅ Increased top padding for the entire footer container */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 sm:pt-10 sm:pb-8 md:pt-14 md:pb-12 lg:pt-16 lg:pb-14">
+      
+      <div className="container mx-auto px-6 sm:px-8 md:px-10 lg:px-8 xl:px-12 pt-8 pb-6 sm:pt-10 sm:pb-8 md:pt-14 md:pb-12 lg:pt-16 lg:pb-14">
         
-        {/* Main Footer Grid with increased gap */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 md:gap-12 lg:gap-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 md:gap-12 lg:gap-16 px-1 sm:px-0">
           
-          {/* Column 1: Brand Section with increased spacing */}
-          <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start">
-            {/* ✅ Increased gap between SmartPark text and logo */}
-            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
+          <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start pl-2 sm:pl-3 md:pl-0">
+            
+            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-5 ml-1 sm:ml-0">
               <span className="text-3xl sm:text-4xl md:text-5xl">🅿️</span>
               <span className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide">SmartPark</span>
             </div>
-            {/* ✅ Increased margin below description */}
-            <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-xs lg:max-w-full mb-5 sm:mb-6">
+
+            <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-xs lg:max-w-full mb-5 sm:mb-6 pr-2">
               India's leading smart parking platform. Find, book, and manage parking spaces with ease. Save time, reduce stress, and park smarter.
             </p>
-            {/* Social Links with increased spacing */}
+
             <div className="flex flex-wrap gap-3 sm:gap-4">
               {socialLinks.map((social, index) => (
                 <motion.a
@@ -84,7 +82,6 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Column 2: Company Links */}
           <div className="flex flex-col items-start">
             <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-4 sm:mb-5 text-gray-300">Company</h3>
             <ul className="space-y-3 sm:space-y-4">
@@ -98,7 +95,6 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Column 3: Support Links */}
           <div className="flex flex-col items-start">
             <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-4 sm:mb-5 text-gray-300">Support</h3>
             <ul className="space-y-3 sm:space-y-4">
@@ -112,7 +108,6 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Column 4: Contact Info */}
           <div className="flex flex-col items-start">
             <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-4 sm:mb-5 text-gray-300">Contact Us</h3>
             <div className="space-y-4 sm:space-y-5">
@@ -143,10 +138,8 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Divider with increased margin */}
         <div className="border-t border-gray-800 my-8 sm:my-10 md:my-12"></div>
 
-        {/* Copyright Section */}
         <div className="text-center text-gray-500 text-xs sm:text-sm">
           <p>&copy; {currentYear} SmartPark. All rights reserved.</p>
         </div>
