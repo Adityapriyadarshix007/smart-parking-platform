@@ -180,6 +180,75 @@
         
         @media (max-width: 768px) { .container { padding: 1rem; } .slots-table th, .slots-table td { padding: 0.75rem; } }
 
+        /* ✅ Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .toast {
+            background: white;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.4s ease;
+            border-left: 4px solid;
+        }
+
+        @keyframes slideIn {
+            0% { transform: translateX(100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+
+        .toast.success { border-left-color: #10b981; }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.info { border-left-color: #3b82f6; }
+
+        .toast .toast-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        .toast.success .toast-icon { color: #10b981; }
+        .toast.error .toast-icon { color: #ef4444; }
+        .toast.info .toast-icon { color: #3b82f6; }
+
+        .toast .toast-content {
+            flex: 1;
+        }
+        .toast .toast-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1f2f40;
+        }
+        .toast .toast-message {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+        .toast .toast-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .toast .toast-close:hover { color: #374151; }
+
         /* ✅ Delete Confirmation Modal */
         .delete-modal {
             display: none;
@@ -297,6 +366,9 @@
         </div>
     </div>
 
+    <!-- ✅ Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- ✅ Edit Modal -->
     <div id="editModal" class="modal"><div class="modal-content"><h2 style="margin-bottom: 1rem;"><i class="fas fa-edit"></i> Edit Parking Slot</h2><input type="text" id="editTitle" placeholder="Title"><input type="text" id="editCity" placeholder="City"><input type="number" id="editTotalSlots" placeholder="Total Slots"><input type="number" id="editHourlyRate" placeholder="Hourly Rate (₹)"><select id="editStatus"><option value="true">Active</option><option value="false">Inactive</option></select><div class="flex-between" style="margin-top: 1rem;"><button onclick="saveEdit()" style="flex:1; background: #10b981; color: white; padding: 0.75rem; border: none; border-radius: 12px; margin-right: 0.5rem; cursor: pointer;">Save Changes</button><button onclick="closeModal()" style="flex:1; background: #e5e7eb; padding: 0.75rem; border: none; border-radius: 12px; cursor: pointer;">Cancel</button></div></div></div>
 
@@ -318,6 +390,49 @@
     <script>
         let allSlots = [], currentEditId = null;
         let deleteSlotId = null;
+
+        // ✅ Toast Functions
+        function showToast(title, message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️'
+            };
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.animation = 'slideOut 0.4s ease forwards';
+                    setTimeout(() => toast.remove(), 400);
+                }
+            }, 4000);
+        }
+
+        function showSuccess(message) {
+            showToast('Success', message, 'success');
+        }
+
+        function showError(message) {
+            showToast('Error', message, 'error');
+        }
+
+        function showInfo(message) {
+            showToast('Info', message, 'info');
+        }
         
         async function fetchSlots() {
             const token = localStorage.getItem('token');
@@ -330,7 +445,7 @@
                 });
                 const data = await res.json();
                 if (data.success && data.data) { allSlots = data.data; updateStats(); displaySlots(); document.getElementById('loadingSpinner').style.display = 'none'; document.getElementById('tableContainer').style.display = 'block'; }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); showError('Failed to load parking slots'); }
         }
         
         function updateStats() {
@@ -361,8 +476,8 @@
                 await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${currentEditId}`, {
                     method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('editTitle').value, location: { city: document.getElementById('editCity').value }, totalSlots: parseInt(document.getElementById('editTotalSlots').value), pricing: { hourly: parseInt(document.getElementById('editHourlyRate').value) }, isActive: document.getElementById('editStatus').value === 'true' })
                 });
-                fetchSlots(); closeModal(); alert('Slot updated successfully!');
-            } catch(e) { alert('Update failed'); }
+                fetchSlots(); closeModal(); showSuccess('Parking slot updated successfully!');
+            } catch(e) { showError('Failed to update parking slot'); }
         }
         
         async function toggleStatus(id, currentStatus) {
@@ -370,7 +485,8 @@
             try {
                 await fetch(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/parking/${id}/toggle-status`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
                 fetchSlots();
-            } catch(e) { alert('Status update failed'); }
+                showSuccess(`Parking slot ${currentStatus ? 'deactivated' : 'activated'} successfully!`);
+            } catch(e) { showError('Failed to update status'); }
         }
         
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
@@ -404,15 +520,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Parking slot deleted successfully!');
+                    showSuccess('Parking slot deleted successfully!');
                     closeDeleteModal();
                     fetchSlots();
                 } else {
-                    alert(data.message || 'Failed to delete slot');
+                    showError(data.message || 'Failed to delete slot');
                 }
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('Error deleting slot. Please try again.');
+                showError('Error deleting slot. Please try again.');
             }
         }
 
