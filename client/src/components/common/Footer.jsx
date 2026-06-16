@@ -45,23 +45,20 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 text-white mt-auto w-full">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-        {/* Main Footer Grid with increased spacing */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 lg:gap-16">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-12 lg:py-14">
+        {/* Main Footer Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 md:gap-10 lg:gap-12">
           
-          {/* Column 1: Brand Section with improved spacing */}
+          {/* Column 1: Brand Section */}
           <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start">
-            {/* Logo with proper padding-bottom */}
-            <div className="flex items-center gap-3 mb-4 pb-1">
-              <span className="text-3xl md:text-4xl">🅿️</span>
-              <span className="text-2xl md:text-3xl font-bold tracking-wide">SmartPark</span>
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <span className="text-2xl sm:text-3xl md:text-4xl">🅿️</span>
+              <span className="text-xl sm:text-2xl md:text-3xl font-bold tracking-wide">SmartPark</span>
             </div>
-            {/* Description with proper margin */}
-            <p className="text-gray-400 text-sm leading-relaxed max-w-xs lg:max-w-full mb-5">
+            <p className="text-gray-400 text-xs sm:text-sm leading-relaxed max-w-xs lg:max-w-full mb-4 sm:mb-5">
               India's leading smart parking platform. Find, book, and manage parking spaces with ease. Save time, reduce stress, and park smarter.
             </p>
-            {/* Social Links with proper spacing */}
-            <div className="flex flex-wrap gap-3 mt-1">
+            <div className="flex flex-wrap gap-2 sm:gap-2.5 md:gap-3">
               {socialLinks.map((social, index) => (
                 <motion.a
                   key={index}
@@ -70,7 +67,7 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-lg"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-lg"
                   style={{ backgroundColor: social.bgColor }}
                   aria-label={social.name}
                 >
@@ -82,10 +79,10 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Column 2: Company Links with proper top padding */}
-          <div className="flex flex-col items-start pt-1">
-            <h3 className="font-semibold text-base md:text-lg mb-4 text-gray-300">Company</h3>
-            <ul className="space-y-3">
+          {/* Column 2: Company Links */}
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-sm sm:text-base md:text-lg mb-3 sm:mb-4 text-gray-300">Company</h3>
+            <ul className="space-y-2 sm:space-y-2.5 md:space-y-3">
               {footerSections.company.links.map((link, idx) => (
                 <li key={idx}>
                   <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm md:text-base">
@@ -96,10 +93,10 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Column 3: Support Links with proper top padding */}
-          <div className="flex flex-col items-start pt-1">
-            <h3 className="font-semibold text-base md:text-lg mb-4 text-gray-300">Support</h3>
-            <ul className="space-y-3">
+          {/* Column 3: Support Links */}
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-sm sm:text-base md:text-lg mb-3 sm:mb-4 text-gray-300">Support</h3>
+            <ul className="space-y-2 sm:space-y-2.5 md:space-y-3">
               {footerSections.support.links.map((link, idx) => (
                 <li key={idx}>
                   <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm md:text-base">
@@ -110,42 +107,42 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Column 4: Contact Info with proper top padding */}
-          <div className="flex flex-col items-start pt-1">
-            <h3 className="font-semibold text-base md:text-lg mb-4 text-gray-300">Contact Us</h3>
-            <div className="space-y-4">
+          {/* Column 4: Contact Info */}
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-sm sm:text-base md:text-lg mb-3 sm:mb-4 text-gray-300">Contact Us</h3>
+            <div className="space-y-3 sm:space-y-3.5 md:space-y-4">
               <a 
                 href="https://maps.google.com/?q=DLF+Cyber+City+Gurugram+India"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
+                className="flex items-start gap-2.5 sm:gap-3 md:gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg flex-shrink-0 mt-0.5">📍</span>
-                <span className="text-sm md:text-base">DLF Cyber City, Gurugram, India</span>
+                <span className="text-base sm:text-lg flex-shrink-0 mt-0.5">📍</span>
+                <span className="text-xs sm:text-sm md:text-base">DLF Cyber City, Gurugram, India</span>
               </a>
               <a 
                 href="tel:+919876543210"
-                className="flex items-center gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
+                className="flex items-center gap-2.5 sm:gap-3 md:gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg flex-shrink-0">📞</span>
-                <span className="text-sm md:text-base">+91 98765 43210</span>
+                <span className="text-base sm:text-lg flex-shrink-0">📞</span>
+                <span className="text-xs sm:text-sm md:text-base">+91 98765 43210</span>
               </a>
               <a 
                 href="mailto:support@smartpark.com"
-                className="flex items-center gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
+                className="flex items-center gap-2.5 sm:gap-3 md:gap-3.5 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg flex-shrink-0">📧</span>
-                <span className="text-sm md:text-base">support@smartpark.com</span>
+                <span className="text-base sm:text-lg flex-shrink-0">📧</span>
+                <span className="text-xs sm:text-sm md:text-base">support@smartpark.com</span>
               </a>
             </div>
           </div>
         </div>
 
-        {/* Divider with increased spacing */}
-        <div className="border-t border-gray-800 my-8 md:my-10"></div>
+        {/* Divider */}
+        <div className="border-t border-gray-800 my-6 sm:my-8 md:my-10"></div>
 
-        {/* Copyright Section with improved padding */}
-        <div className="text-center text-gray-500 text-xs md:text-sm pt-1">
+        {/* Copyright Section */}
+        <div className="text-center text-gray-500 text-xs sm:text-sm">
           <p>&copy; {currentYear} SmartPark. All rights reserved.</p>
         </div>
       </div>
