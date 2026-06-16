@@ -439,5 +439,3 @@ Aditya Priyadarshi
 * MongoDB Atlas - For free database hosting
 * Leaflet & OpenStreetMap - For free map tiles
 * UptimeRobot - For free monitoring
-
-<img width="1512" height="828" alt="Screenshot 2026-06-14 at 10 51 39 AM" src="https://github.com/user-attachments/assets/f7582c5f-b1b6-441a-b82d-dcc822eb5859" />
