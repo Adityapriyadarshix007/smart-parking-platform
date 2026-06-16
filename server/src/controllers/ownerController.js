@@ -84,10 +84,16 @@ const getOwnerBookings = async (req, res) => {
     const slots = await ParkingSlot.find({ ownerId: req.user.id });
     const slotIds = slots.map(slot => slot._id);
     
-    const bookings = await Booking.find({ slotId: { $in: slotIds } })
-      .populate('userId', 'name email phone')
-      .populate('slotId')
-      .sort({ createdAt: -1 });
+    // ✅ Get bookings with slotSnapshot populated
+    const bookings = await Booking.find({ 
+      slotId: { $in: slotIds } 
+    })
+    .populate('userId', 'name email phone')
+    .populate('slotId', 'title location pricing isActive')
+    .sort({ createdAt: -1 });
+    
+    // ✅ slotSnapshot is already in the Booking model
+    // The frontend will use slotSnapshot if slotId is deleted
     
     res.status(200).json({ success: true, data: bookings });
   } catch (error) {
@@ -135,4 +141,12 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getMySlots, createSlot, updateSlot, deleteSlot, getOwnerBookings, getEarnings, getDashboardStats };
+module.exports = { 
+  getMySlots, 
+  createSlot, 
+  updateSlot, 
+  deleteSlot, 
+  getOwnerBookings, 
+  getEarnings, 
+  getDashboardStats 
+};

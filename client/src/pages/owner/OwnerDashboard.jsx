@@ -37,6 +37,37 @@ const OwnerDashboard = () => {
     pricing: { hourly: 30, daily: 150, monthly: 3000 }
   });
 
+  // ✅ Helper to get slot display from snapshot or slotId
+  const getSlotDisplay = (booking) => {
+    // Priority 1: slotSnapshot (permanent storage)
+    if (booking.slotSnapshot && booking.slotSnapshot.title) {
+      return {
+        title: booking.slotSnapshot.title,
+        location: booking.slotSnapshot.location,
+        isDeleted: booking.slotSnapshot.isDeleted || false,
+        isFromSnapshot: true
+      };
+    }
+    
+    // Priority 2: slotId populated
+    if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
+      return {
+        title: booking.slotId.title,
+        location: booking.slotId.location,
+        isDeleted: false,
+        isFromSnapshot: false
+      };
+    }
+    
+    // Fallback
+    return {
+      title: '📍 Location Removed',
+      location: { address: 'This parking location is no longer available', city: '' },
+      isDeleted: true,
+      isFromSnapshot: false
+    };
+  };
+
   // Geocode full address to get coordinates
   const geocodeAddress = async () => {
     const { address, city, state } = newSlot.location;
@@ -191,7 +222,8 @@ const OwnerDashboard = () => {
       month: 'short',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Asia/Kolkata'
     });
   };
 
@@ -484,25 +516,48 @@ const OwnerDashboard = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {bookings.slice(0, 10).map((booking) => (
-                <div key={booking._id} className="border-b pb-3 flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold text-gray-800">{booking.userId?.name}</div>
-                    <div className="text-sm text-gray-600">{booking.vehicleNumber}</div>
-                    <div className="text-xs text-gray-500">{formatDate(booking.startTime)}</div>
+              {bookings.slice(0, 10).map((booking) => {
+                const slotData = getSlotDisplay(booking);
+                const isDeleted = slotData.isDeleted;
+                
+                return (
+                  <div key={booking._id} className="border-b pb-3 flex justify-between items-center">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-gray-800">
+                          {slotData.title || '📍 Location Removed'}
+                        </div>
+                        {isDeleted && (
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                            Deleted
+                          </span>
+                        )}
+                        {slotData.isFromSnapshot && !isDeleted && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                      <div className={`text-sm ${isDeleted ? 'text-red-500' : 'text-gray-600'}`}>
+                        {slotData.location?.address || 'Location not available'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {booking.userId?.name} • {booking.vehicleNumber}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-green-600">₹{booking.totalPrice}</div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                        booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-600">₹{booking.totalPrice}</div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
