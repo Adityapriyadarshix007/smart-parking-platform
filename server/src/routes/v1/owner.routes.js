@@ -7,6 +7,42 @@ const Booking = require('../../models/Booking.model');
 router.use(protect);
 router.use(authorize('owner', 'admin'));
 
+// ✅ GET /stats - Dashboard statistics for owner
+router.get('/stats', async (req, res) => {
+  try {
+    const slots = await ParkingSlot.find({ ownerId: req.user.id });
+    const slotIds = slots.map(s => s._id);
+    
+    const totalSlots = slots.length;
+    const activeSlots = slots.filter(s => s.isActive).length;
+    const totalBookings = await Booking.countDocuments({ 
+      slotId: { $in: slotIds } 
+    });
+    
+    // Calculate total earnings from confirmed/completed bookings
+    const bookings = await Booking.find({ 
+      slotId: { $in: slotIds },
+      status: { $in: ['confirmed', 'completed'] }
+    });
+    const totalEarnings = bookings.reduce((sum, b) => sum + b.totalPrice, 0);
+    
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        totalSlots, 
+        activeSlots,
+        totalBookings,
+        totalEarnings,
+        availableSlots: slots.reduce((sum, s) => sum + s.availableSlots, 0),
+        pendingVerification: slots.filter(s => !s.isVerified).length
+      } 
+    });
+  } catch (error) {
+    console.error('Error fetching owner stats:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Get owner's parking slots
 router.get('/my-slots', async (req, res) => {
   try {
@@ -144,6 +180,7 @@ router.get('/bookings', async (req, res) => {
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: bookings });
   } catch (error) {
+    console.error('Get bookings error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -163,6 +200,7 @@ router.get('/earnings', async (req, res) => {
       data: { totalEarnings, totalBookings: bookings.length } 
     });
   } catch (error) {
+    console.error('Get earnings error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

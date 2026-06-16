@@ -7,7 +7,8 @@ const getMySlots = async (req, res) => {
     const slots = await ParkingSlot.find({ ownerId: req.user.id });
     res.status(200).json({ success: true, data: slots });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching owner slots:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -27,7 +28,8 @@ const createSlot = async (req, res) => {
     
     res.status(201).json({ success: true, data: slot });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error creating slot:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -36,11 +38,11 @@ const updateSlot = async (req, res) => {
     let slot = await ParkingSlot.findById(req.params.id);
     
     if (!slot) {
-      return res.status(404).json({ message: 'Slot not found' });
+      return res.status(404).json({ success: false, message: 'Slot not found' });
     }
     
     if (slot.ownerId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     
     slot = await ParkingSlot.findByIdAndUpdate(req.params.id, req.body, {
@@ -50,7 +52,8 @@ const updateSlot = async (req, res) => {
     
     res.status(200).json({ success: true, data: slot });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error updating slot:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -59,11 +62,11 @@ const deleteSlot = async (req, res) => {
     const slot = await ParkingSlot.findById(req.params.id);
     
     if (!slot) {
-      return res.status(404).json({ message: 'Slot not found' });
+      return res.status(404).json({ success: false, message: 'Slot not found' });
     }
     
     if (slot.ownerId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     
     await slot.deleteOne();
@@ -75,7 +78,8 @@ const deleteSlot = async (req, res) => {
     
     res.status(200).json({ success: true, message: 'Slot deleted' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error deleting slot:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -84,7 +88,10 @@ const getOwnerBookings = async (req, res) => {
     const slots = await ParkingSlot.find({ ownerId: req.user.id });
     const slotIds = slots.map(slot => slot._id);
     
-    // ✅ Get bookings with slotSnapshot and slotId populated
+    if (slotIds.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+    
     const bookings = await Booking.find({ 
       slotId: { $in: slotIds } 
     })
@@ -92,13 +99,10 @@ const getOwnerBookings = async (req, res) => {
     .populate('slotId', 'title location pricing isActive availableSlots totalSlots')
     .sort({ createdAt: -1 });
     
-    // ✅ Ensure slotSnapshot is included (it's already in the schema)
-    // For older bookings without slotSnapshot, we'll add a fallback in frontend
-    
     res.status(200).json({ success: true, data: bookings });
   } catch (error) {
     console.error('Error fetching owner bookings:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -106,6 +110,13 @@ const getEarnings = async (req, res) => {
   try {
     const slots = await ParkingSlot.find({ ownerId: req.user.id });
     const slotIds = slots.map(slot => slot._id);
+    
+    if (slotIds.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        data: { totalEarnings: 0, totalBookings: 0 } 
+      });
+    }
     
     const bookings = await Booking.find({ 
       slotId: { $in: slotIds },
@@ -125,20 +136,44 @@ const getEarnings = async (req, res) => {
       data: { totalEarnings, totalBookings: bookings.length } 
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching earnings:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ✅ This is the missing endpoint - getDashboardStats
 const getDashboardStats = async (req, res) => {
   try {
-    const totalSlots = await ParkingSlot.countDocuments({ ownerId: req.user.id });
+    const slots = await ParkingSlot.find({ ownerId: req.user.id });
+    const slotIds = slots.map(s => s._id);
+    
+    const totalSlots = slots.length;
+    const activeSlots = slots.filter(s => s.isActive).length;
     const totalBookings = await Booking.countDocuments({ 
-      slotId: { $in: (await ParkingSlot.find({ ownerId: req.user.id })).map(s => s._id) }
+      slotId: { $in: slotIds } 
     });
     
-    res.status(200).json({ success: true, data: { totalSlots, totalBookings } });
+    // Calculate total earnings
+    const bookings = await Booking.find({ 
+      slotId: { $in: slotIds },
+      status: { $in: ['confirmed', 'completed'] }
+    });
+    const totalEarnings = bookings.reduce((sum, b) => sum + b.totalPrice, 0);
+    
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        totalSlots, 
+        activeSlots,
+        totalBookings,
+        totalEarnings,
+        availableSlots: slots.reduce((sum, s) => sum + s.availableSlots, 0),
+        pendingVerification: slots.filter(s => !s.isVerified).length
+      } 
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -149,5 +184,5 @@ module.exports = {
   deleteSlot, 
   getOwnerBookings, 
   getEarnings, 
-  getDashboardStats 
+  getDashboardStats  // ✅ Export the missing function
 };
