@@ -40,14 +40,16 @@ const SearchParking = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
-  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // Center of India
-  const [mapZoom, setMapZoom] = useState(5); // Zoom out to show India
+  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]);
+  const [mapZoom, setMapZoom] = useState(5);
   const [mapReady, setMapReady] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const addressSearchRef = useRef(null);
   const navigate = useNavigate();
-
-  const defaultLocation = { lat: 20.5937, lng: 78.9629 }; // Center of India
+  
+  // Debounce timer refs
+  const radiusDebounceRef = useRef(null);
+  const vehicleTypeDebounceRef = useRef(null);
 
   useEffect(() => {
     setMapReady(true);
@@ -219,18 +221,74 @@ const SearchParking = () => {
     setLoading(false);
   };
 
-  const handleRadiusChange = async (newRadius) => {
+  // Debounced radius change handler
+  const handleRadiusChange = (newRadius) => {
     setSearchParams(prev => ({ ...prev, radius: newRadius, page: 1 }));
-    if (userLocation && hasSearched) {
-      await searchParking(userLocation.lat, userLocation.lng);
+    
+    if (radiusDebounceRef.current) {
+      clearTimeout(radiusDebounceRef.current);
+    }
+    
+    radiusDebounceRef.current = setTimeout(() => {
+      if (userLocation && hasSearched) {
+        searchParking(userLocation.lat, userLocation.lng);
+      }
+    }, 500);
+  };
+
+  // Debounced vehicle type change handler
+  const handleVehicleTypeChange = (type) => {
+    setSearchParams(prev => ({ ...prev, vehicleType: type, page: 1 }));
+    
+    if (vehicleTypeDebounceRef.current) {
+      clearTimeout(vehicleTypeDebounceRef.current);
+    }
+    
+    vehicleTypeDebounceRef.current = setTimeout(() => {
+      if (userLocation && hasSearched) {
+        searchParking(userLocation.lat, userLocation.lng);
+      }
+    }, 500);
+  };
+
+  // Calculate total price helper
+  const calculateTotalPrice = (slot, startTime, endTime) => {
+    if (!slot || !startTime || !endTime) return 0;
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffHours = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60)));
+    const hourlyRate = slot.pricing?.hourly || 30;
+    return diffHours * hourlyRate;
+  };
+
+  // Check availability before booking
+  const checkAvailability = async (slotId, startTime, endTime) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/check-availability', {
+        slotId,
+        startTime,
+        endTime
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Availability check error:', error);
+      return { available: false, message: 'Could not check availability' };
     }
   };
 
-  const handleVehicleTypeChange = async (type) => {
-    setSearchParams(prev => ({ ...prev, vehicleType: type, page: 1 }));
-    if (userLocation && hasSearched) {
-      await searchParking(userLocation.lat, userLocation.lng);
-    }
+  // Function to update a single slot's available count locally
+  const updateSlotAvailability = (slotId, newAvailableCount) => {
+    setParkingSlots(prevSlots => 
+      prevSlots.map(slot => 
+        slot._id === slotId 
+          ? { ...slot, availableSlots: newAvailableCount }
+          : slot
+      )
+    );
   };
 
   const loadRazorpayScript = () => {
@@ -313,6 +371,7 @@ const SearchParking = () => {
     }
   };
 
+  // FIXED: Added totalPrice and availability check to the booking request
   const handleBooking = async () => {
     if (!hasPhoneNumber()) {
       setShowBookingModal(false);
@@ -345,6 +404,28 @@ const SearchParking = () => {
     
     setBookingLoading(true);
     
+    // Check availability first
+    toast.loading('Checking availability...', { id: 'availabilityCheck' });
+    
+    const availability = await checkAvailability(selectedSlot._id, bookingDetails.startTime, bookingDetails.endTime);
+    
+    toast.dismiss('availabilityCheck');
+    
+    if (!availability.available) {
+      toast.error(availability.message || 'This time slot is no longer available. Please choose a different time.');
+      setBookingLoading(false);
+      return;
+    }
+    
+    if (availability.availableSlots !== undefined && availability.availableSlots <= 0) {
+      toast.error('No parking spots available at this location. Please try another location.');
+      setBookingLoading(false);
+      return;
+    }
+    
+    // Calculate total price
+    const totalPrice = calculateTotalPrice(selectedSlot, bookingDetails.startTime, bookingDetails.endTime);
+    
     try {
       const token = localStorage.getItem('token');
       
@@ -353,14 +434,23 @@ const SearchParking = () => {
         startTime: bookingDetails.startTime,
         endTime: bookingDetails.endTime,
         vehicleNumber: bookingDetails.vehicleNumber.toUpperCase(),
-        vehicleType: bookingDetails.vehicleType
+        vehicleType: bookingDetails.vehicleType,
+        totalPrice: totalPrice
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (response.data.success) {
         const booking = response.data.data;
+        
+        // Update the slot's available count locally (decrease by 1)
+        updateSlotAvailability(selectedSlot._id, selectedSlot.availableSlots - 1);
+        
+        // Also update the selectedSlot state
+        setSelectedSlot(prev => ({ ...prev, availableSlots: prev.availableSlots - 1 }));
+        
         setShowBookingModal(false);
+        toast.success('Booking created! Proceeding to payment...');
         await handlePayment(booking);
       }
     } catch (error) {
@@ -390,6 +480,12 @@ const SearchParking = () => {
   };
 
   const openBookingModal = (slot) => {
+    // Check if slot has available spots before opening modal
+    if (slot.availableSlots <= 0) {
+      toast.error('No parking spots available at this location');
+      return;
+    }
+    
     if (!hasPhoneNumber()) {
       setSelectedSlot(slot);
       setShowPhoneModal(true);
@@ -416,6 +512,14 @@ const SearchParking = () => {
   const markerPositions = parkingSlots
     .filter(slot => slot.location && slot.location.coordinates)
     .map(slot => [slot.location.coordinates[1], slot.location.coordinates[0]]);
+
+  // Cleanup debounce timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current);
+      if (vehicleTypeDebounceRef.current) clearTimeout(vehicleTypeDebounceRef.current);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -559,7 +663,7 @@ const SearchParking = () => {
                           <p className="text-gray-600 text-sm">{slot.location?.address}</p>
                           <p className="text-gray-500 text-xs mt-1">{slot.location?.city}, {slot.location?.state}</p>
                           <div className="flex flex-wrap gap-2 mt-3">
-                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-lg text-xs font-medium">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${slot.availableSlots > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                               🅿️ {slot.availableSlots}/{slot.totalSlots} spots
                             </span>
                             <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-medium">
@@ -570,11 +674,20 @@ const SearchParking = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (slot.availableSlots <= 0) {
+                              toast.error('No spots available at this location');
+                              return;
+                            }
                             openBookingModal(slot);
                           }}
-                          className="ml-4 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all text-sm font-medium shadow-md"
+                          disabled={slot.availableSlots <= 0}
+                          className={`ml-4 px-5 py-2 rounded-lg transition-all text-sm font-medium shadow-md ${
+                            slot.availableSlots > 0 
+                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
                         >
-                          Book Now →
+                          {slot.availableSlots > 0 ? 'Book Now →' : 'Full'}
                         </button>
                       </div>
                     </motion.div>
@@ -600,7 +713,6 @@ const SearchParking = () => {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapController center={mapCenter} zoom={mapZoom} markers={markerPositions} />
                 
-                {/* Parking Slots Markers - Unified */}
                 {parkingSlots.map((slot) => (
                   slot.location && slot.location.coordinates && (
                     <BlinkingMarker 
@@ -640,6 +752,7 @@ const SearchParking = () => {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-sm text-gray-600">📍 {selectedSlot.location?.address}</p>
                   <p className="text-sm text-gray-600 mt-2">💰 ₹{selectedSlot.pricing?.hourly} per hour</p>
+                  <p className="text-sm text-gray-600 mt-1">🅿️ Available: {selectedSlot.availableSlots}/{selectedSlot.totalSlots} spots</p>
                 </div>
                 
                 <div>

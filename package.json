@@ -18,5 +18,8 @@
     "node": ">=18.0.0"
   },
   "author": "Smart Parking Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^6.21.0"
+  }
 }
