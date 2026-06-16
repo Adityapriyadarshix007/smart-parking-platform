@@ -39,30 +39,42 @@ const OwnerDashboard = () => {
 
   // ✅ Helper to get slot display from snapshot or slotId
   const getSlotDisplay = (booking) => {
-    // Priority 1: slotSnapshot (permanent storage)
+    // Priority 1: slotSnapshot (permanent storage from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
       return {
         title: booking.slotSnapshot.title,
-        location: booking.slotSnapshot.location,
+        location: {
+          address: booking.slotSnapshot.location?.address || 'Address not available',
+          city: booking.slotSnapshot.location?.city || '',
+          state: booking.slotSnapshot.location?.state || ''
+        },
         isDeleted: booking.slotSnapshot.isDeleted || false,
         isFromSnapshot: true
       };
     }
     
-    // Priority 2: slotId populated
+    // Priority 2: slotId populated (if not deleted)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return {
         title: booking.slotId.title,
-        location: booking.slotId.location,
+        location: {
+          address: booking.slotId.location?.address || 'Address not available',
+          city: booking.slotId.location?.city || '',
+          state: booking.slotId.location?.state || ''
+        },
         isDeleted: false,
         isFromSnapshot: false
       };
     }
     
-    // Fallback
+    // Priority 3: Fallback - Show meaningful message
     return {
-      title: '📍 Location Removed',
-      location: { address: 'This parking location is no longer available', city: '' },
+      title: '📍 Parking Location (No Longer Available)',
+      location: {
+        address: 'This parking location has been removed by the owner',
+        city: '',
+        state: ''
+      },
       isDeleted: true,
       isFromSnapshot: false
     };
@@ -525,11 +537,11 @@ const OwnerDashboard = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <div className="font-semibold text-gray-800">
-                          {slotData.title || '📍 Location Removed'}
+                          {slotData.title}
                         </div>
                         {isDeleted && (
                           <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                            Deleted
+                            Removed
                           </span>
                         )}
                         {slotData.isFromSnapshot && !isDeleted && (
@@ -539,10 +551,10 @@ const OwnerDashboard = () => {
                         )}
                       </div>
                       <div className={`text-sm ${isDeleted ? 'text-red-500' : 'text-gray-600'}`}>
-                        {slotData.location?.address || 'Location not available'}
+                        {slotData.location.address}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {booking.userId?.name} • {booking.vehicleNumber}
+                        {booking.userId?.name || 'Unknown User'} • {booking.vehicleNumber || 'N/A'}
                       </div>
                     </div>
                     <div className="text-right">
