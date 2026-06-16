@@ -44,21 +44,21 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-gray-900 text-white mt-auto">
-      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
-        {/* Main Footer Grid - Responsive columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+    <footer className="bg-gray-900 text-white mt-auto w-full">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        {/* Main Footer Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 lg:gap-12">
           
-          {/* Column 1: Brand Section */}
-          <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl md:text-3xl">🅿️</span>
-              <span className="text-xl md:text-2xl font-bold">SmartPark</span>
+          {/* Column 1: Brand Section with proper alignment */}
+          <div className="sm:col-span-2 lg:col-span-1 flex flex-col items-start">
+            <div className="flex items-center gap-2.5 mb-4">
+              <span className="text-3xl md:text-4xl">🅿️</span>
+              <span className="text-2xl md:text-3xl font-bold tracking-wide">SmartPark</span>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+            <p className="text-gray-400 text-sm leading-relaxed max-w-xs lg:max-w-full">
               India's leading smart parking platform. Find, book, and manage parking spaces with ease. Save time, reduce stress, and park smarter.
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5 mt-4">
               {socialLinks.map((social, index) => (
                 <motion.a
                   key={index}
@@ -67,23 +67,25 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-lg"
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-lg"
                   style={{ backgroundColor: social.bgColor }}
                   aria-label={social.name}
                 >
-                  <span className="text-white">{getSocialIcon(social.icon)}</span>
+                  <span className="text-white flex items-center justify-center">
+                    {getSocialIcon(social.icon)}
+                  </span>
                 </motion.a>
               ))}
             </div>
           </div>
 
           {/* Column 2: Company Links */}
-          <div>
-            <h3 className="font-semibold text-base mb-3 text-gray-300">Company</h3>
-            <ul className="space-y-2">
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-gray-300">Company</h3>
+            <ul className="space-y-2.5">
               {footerSections.company.links.map((link, idx) => (
                 <li key={idx}>
-                  <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm">
+                  <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm md:text-base">
                     {link.name}
                   </Link>
                 </li>
@@ -92,12 +94,12 @@ const Footer = () => {
           </div>
 
           {/* Column 3: Support Links */}
-          <div>
-            <h3 className="font-semibold text-base mb-3 text-gray-300">Support</h3>
-            <ul className="space-y-2">
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-gray-300">Support</h3>
+            <ul className="space-y-2.5">
               {footerSections.support.links.map((link, idx) => (
                 <li key={idx}>
-                  <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm">
+                  <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors duration-300 text-sm md:text-base">
                     {link.name}
                   </Link>
                 </li>
@@ -106,41 +108,41 @@ const Footer = () => {
           </div>
 
           {/* Column 4: Contact Info */}
-          <div>
-            <h3 className="font-semibold text-base mb-3 text-gray-300">Contact Us</h3>
-            <div className="space-y-3">
+          <div className="flex flex-col items-start">
+            <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-gray-300">Contact Us</h3>
+            <div className="space-y-3.5">
               <a 
                 href="https://maps.google.com/?q=DLF+Cyber+City+Gurugram+India"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start gap-3 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg">📍</span>
-                <span className="text-sm">DLF Cyber City, Gurugram, India</span>
+                <span className="text-lg flex-shrink-0 mt-0.5">📍</span>
+                <span className="text-sm md:text-base">DLF Cyber City, Gurugram, India</span>
               </a>
               <a 
                 href="tel:+919876543210"
                 className="flex items-center gap-3 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg">📞</span>
-                <span className="text-sm">+91 98765 43210</span>
+                <span className="text-lg flex-shrink-0">📞</span>
+                <span className="text-sm md:text-base">+91 98765 43210</span>
               </a>
               <a 
                 href="mailto:support@smartpark.com"
                 className="flex items-center gap-3 text-gray-400 hover:text-blue-400 transition-colors duration-300 group"
               >
-                <span className="text-lg">📧</span>
-                <span className="text-sm">support@smartpark.com</span>
+                <span className="text-lg flex-shrink-0">📧</span>
+                <span className="text-sm md:text-base">support@smartpark.com</span>
               </a>
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-gray-800 my-4 sm:my-6"></div>
+        {/* Divider with proper spacing */}
+        <div className="border-t border-gray-800 my-6 md:my-8"></div>
 
-        {/* Copyright Section */}
-        <div className="text-center text-gray-500 text-xs">
+        {/* Copyright Section with proper padding */}
+        <div className="text-center text-gray-500 text-xs md:text-sm">
           <p>&copy; {currentYear} SmartPark. All rights reserved.</p>
         </div>
       </div>
