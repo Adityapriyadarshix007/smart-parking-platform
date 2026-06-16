@@ -3,14 +3,9 @@ const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 const User = require('../models/User.model');
 
-// ✅ Helper: Convert to IST (UTC + 5:30)
-const convertToIST = (date) => {
-  if (!date) return date;
-  const d = new Date(date);
-  d.setHours(d.getHours() + 5);
-  d.setMinutes(d.getMinutes() + 30);
-  return d;
-};
+// ✅ REMOVED convertToIST - we store UTC in database
+// The frontend sends IST, which becomes UTC when converted to Date
+// We store as-is (which is UTC) and display as IST on frontend
 
 // @desc    Create a new booking
 // @route   POST /api/v1/bookings
@@ -28,19 +23,21 @@ const createBooking = async (req, res) => {
 
     console.log('📝 Creating booking for slot:', slotId);
     console.log('👤 User ID:', req.user.id);
+    console.log('🕐 Received startTime:', startTime);
+    console.log('🕐 Received endTime:', endTime);
 
-    // ✅ Convert to IST before processing
-    const startIST = convertToIST(new Date(startTime));
-    const endIST = convertToIST(new Date(endTime));
+    // ✅ Store times AS-IS (they are already in ISO format from frontend)
+    // The frontend sends times as ISO strings which are UTC
+    const startUTC = new Date(startTime);
+    const endUTC = new Date(endTime);
 
-    console.log(`🕐 Start (IST): ${startIST}`);
-    console.log(`🕐 End (IST): ${endIST}`);
+    console.log(`✅ Storing start (UTC): ${startUTC}`);
+    console.log(`✅ Storing end (UTC): ${endUTC}`);
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // Check if slot exists
       const slot = await ParkingSlot.findById(slotId).session(session);
       if (!slot) {
         await session.abortTransaction();
@@ -51,7 +48,6 @@ const createBooking = async (req, res) => {
         });
       }
 
-      // Check if slot is active
       if (!slot.isActive) {
         await session.abortTransaction();
         session.endSession();
@@ -61,17 +57,16 @@ const createBooking = async (req, res) => {
         });
       }
 
-      // ✅ Count booked spots using IST times
+      // ✅ Count booked spots using UTC times (database stores UTC)
       const bookedCount = await Booking.countDocuments({
         slotId,
         status: { $in: ['confirmed', 'active'] },
         $or: [
-          { startTime: { $lt: endIST, $gte: startIST } },
-          { endTime: { $gt: startIST, $lte: endIST } }
+          { startTime: { $lt: endUTC, $gte: startUTC } },
+          { endTime: { $gt: startUTC, $lte: endUTC } }
         ]
       }).session(session);
 
-      // ✅ Calculate available spots for this time
       const availableSpotsForTime = slot.totalSlots - bookedCount;
       
       console.log(`📊 Slot: ${slot.title}`);
@@ -79,7 +74,6 @@ const createBooking = async (req, res) => {
       console.log(`   Already booked for this time: ${bookedCount}`);
       console.log(`   Available spots for this time: ${availableSpotsForTime}`);
 
-      // ✅ Check if any spots are available for this time
       if (availableSpotsForTime <= 0) {
         await session.abortTransaction();
         session.endSession();
@@ -92,7 +86,6 @@ const createBooking = async (req, res) => {
         });
       }
 
-      // ✅ Also check overall available slots (for other time slots)
       if (slot.availableSlots <= 0) {
         await session.abortTransaction();
         session.endSession();
@@ -102,7 +95,6 @@ const createBooking = async (req, res) => {
         });
       }
 
-      // ✅ Create slot snapshot
       const slotSnapshot = {
         title: slot.title || 'Parking Space',
         location: {
@@ -126,7 +118,6 @@ const createBooking = async (req, res) => {
         isDeleted: false
       };
 
-      // ✅ Decrease available slots count
       const updatedSlot = await ParkingSlot.findByIdAndUpdate(
         slotId,
         { $inc: { availableSlots: -1 } },
@@ -135,15 +126,15 @@ const createBooking = async (req, res) => {
 
       console.log(`✅ Available slots decreased to: ${updatedSlot.availableSlots}/${updatedSlot.totalSlots}`);
 
-      // ✅ Store IST times in database
+      // ✅ Store times as-is (already UTC)
       const booking = new Booking({
         userId: req.user.id,
         slotId,
         slotSnapshot,
         vehicleNumber: vehicleNumber.toUpperCase(),
         vehicleType,
-        startTime: startIST,  // ✅ Store as IST
-        endTime: endIST,      // ✅ Store as IST
+        startTime: startUTC,  // ✅ Store as UTC (already correct)
+        endTime: endUTC,      // ✅ Store as UTC (already correct)
         totalPrice,
         status: 'confirmed',
         paymentStatus: 'paid',
@@ -156,7 +147,9 @@ const createBooking = async (req, res) => {
       session.endSession();
       
       console.log('✅ Booking saved with ID:', booking._id);
-      console.log(`✅ Stored times (IST): ${booking.startTime} to ${booking.endTime}`);
+      console.log(`✅ Stored start (UTC): ${booking.startTime}`);
+      console.log(`✅ Stored end (UTC): ${booking.endTime}`);
+      console.log(`✅ This will display as IST on frontend`);
 
       const populatedBooking = await Booking.findById(booking._id)
         .populate('userId', 'name email')
@@ -194,9 +187,9 @@ const checkAvailability = async (req, res) => {
     console.log('🔍 Checking availability for slot:', slotId);
     console.log('   Time range:', startTime, '-', endTime);
 
-    // ✅ Convert to IST for comparison
-    const startIST = convertToIST(new Date(startTime));
-    const endIST = convertToIST(new Date(endTime));
+    // ✅ Use UTC directly (frontend sends ISO strings)
+    const startUTC = new Date(startTime);
+    const endUTC = new Date(endTime);
 
     const slot = await ParkingSlot.findById(slotId);
     if (!slot) {
@@ -206,17 +199,15 @@ const checkAvailability = async (req, res) => {
       });
     }
 
-    // ✅ Count booked spots using IST times
     const bookedCount = await Booking.countDocuments({
       slotId,
       status: { $in: ['confirmed', 'active'] },
       $or: [
-        { startTime: { $lt: endIST, $gte: startIST } },
-        { endTime: { $gt: startIST, $lte: endIST } }
+        { startTime: { $lt: endUTC, $gte: startUTC } },
+        { endTime: { $gt: startUTC, $lte: endUTC } }
       ]
     });
 
-    // ✅ Calculate available spots for this specific time
     const availableSpotsForTime = slot.totalSlots - bookedCount;
     
     console.log(`📊 ${slot.title}:`);
@@ -224,7 +215,6 @@ const checkAvailability = async (req, res) => {
     console.log(`   Booked for this time: ${bookedCount}`);
     console.log(`   Available for this time: ${availableSpotsForTime}`);
 
-    // Check if any spots are available for this time
     if (availableSpotsForTime <= 0) {
       return res.json({
         success: true,
@@ -237,7 +227,6 @@ const checkAvailability = async (req, res) => {
       });
     }
 
-    // Also check overall available slots
     if (slot.availableSlots <= 0) {
       return res.json({
         success: true,
@@ -297,16 +286,15 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // ✅ Check using IST
-    const nowIST = convertToIST(new Date());
-    if (new Date(booking.startTime) < nowIST) {
+    // ✅ Check using UTC (database stores UTC)
+    const nowUTC = new Date();
+    if (new Date(booking.startTime) < nowUTC) {
       return res.status(400).json({
         success: false,
         message: 'Cannot cancel a booking that has already started'
       });
     }
 
-    // Restore available slots
     await ParkingSlot.findByIdAndUpdate(
       booking.slotId,
       { $inc: { availableSlots: 1 } },
@@ -315,7 +303,7 @@ const cancelBooking = async (req, res) => {
     console.log(`✅ Restored available slot for cancelled booking`);
 
     booking.status = 'cancelled';
-    booking.cancelledAt = convertToIST(new Date());
+    booking.cancelledAt = new Date();
     booking.cancellationReason = req.body.reason || 'Cancelled by user';
 
     await booking.save();
