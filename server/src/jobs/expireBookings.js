@@ -2,20 +2,30 @@ const cron = require('node-cron');
 const Booking = require('../models/Booking.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 
-// ✅ Process expired bookings (database stores UTC)
+// ✅ Helper: Get current time in IST (UTC + 5:30)
+const getISTNow = () => {
+  const now = new Date();
+  now.setHours(now.getHours() + 5);
+  now.setMinutes(now.getMinutes() + 30);
+  return now;
+};
+
+// ✅ Process expired bookings using IST
 const processExpiredBookings = async () => {
   try {
-    const nowUTC = new Date();
+    const nowIST = getISTNow();
     
-    console.log(`🕐 Current UTC time for expiry check: ${nowUTC.toISOString()}`);
+    console.log(`🕐 Current IST time for expiry check: ${nowIST.toISOString()}`);
+    console.log(`🕐 Current IST time: ${nowIST.toString()}`);
     
     // Find expired bookings (endTime is in the past and status is confirmed or active)
     const expiredBookings = await Booking.find({
-      endTime: { $lt: nowUTC },
+      endTime: { $lt: nowIST },
       status: { $in: ['confirmed', 'active'] }
     });
     
     if (expiredBookings.length === 0) {
+      console.log('✅ No expired bookings found');
       return { processed: 0, restored: 0, errors: 0 };
     }
     
@@ -26,11 +36,13 @@ const processExpiredBookings = async () => {
     
     for (const booking of expiredBookings) {
       try {
+        // Update booking status to expired
         booking.status = 'expired';
-        booking.completedAt = nowUTC;
+        booking.completedAt = nowIST;
         await booking.save();
         console.log(`✅ Marked booking ${booking.receiptNumber} as expired`);
         
+        // ✅ Restore available slots
         if (booking.slotId) {
           const slot = await ParkingSlot.findById(booking.slotId);
           if (slot) {
@@ -65,11 +77,13 @@ const processExpiredBookings = async () => {
 };
 
 const expireBookings = () => {
+  // ✅ Run every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
-    console.log('🕐 Running booking expiration check at UTC:', new Date().toISOString());
+    console.log('🕐 Running booking expiration check at IST:', getISTNow().toString());
     await processExpiredBookings();
   });
   
+  // ✅ Run immediately on startup
   console.log('🔄 Running initial booking expiration check on startup...');
   setTimeout(async () => {
     try {
