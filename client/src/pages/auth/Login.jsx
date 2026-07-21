@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import authService from '../../services/authService';
 
@@ -15,7 +15,6 @@ const LoginContent = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
-  const googleButtonRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,26 +90,11 @@ const LoginContent = () => {
     setGoogleLoading(false);
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberEmail');
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRememberMe(true);
-    }
-
-    // Initialize Google Sign-In button
-    if (window.google && googleButtonRef.current) {
-      window.google.accounts.id.renderButton(
-        googleButtonRef.current,
-        {
-          theme: "filled_blue",
-          size: "large",
-          width: "100%",
-          text: "signin_with",
-          shape: "rectangular",
-          locale: "en"
-        }
-      );
     }
   }, []);
 
@@ -225,9 +209,14 @@ const LoginContent = () => {
                   <span className="text-gray-600">Verifying...</span>
                 </div>
               ) : (
-                <div 
-                  ref={googleButtonRef} 
-                  style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme="filled_blue"
+                  shape="rectangular"
+                  width="100%"
+                  text="signin_with"
+                  locale="en"
                 />
               )}
             </div>
