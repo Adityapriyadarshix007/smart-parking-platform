@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import authService from '../../services/authService';
 
@@ -15,7 +15,6 @@ const LoginContent = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
-  const googleButtonRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,30 +90,11 @@ const LoginContent = () => {
     setGoogleLoading(false);
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberEmail');
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRememberMe(true);
-    }
-
-    // Initialize Google Sign-In button using renderButton API
-    // This gives us full control over the button appearance
-    if (window.google && googleButtonRef.current) {
-      // Clear any existing button
-      googleButtonRef.current.innerHTML = '';
-      
-      window.google.accounts.id.renderButton(
-        googleButtonRef.current,
-        {
-          theme: "filled_blue",
-          size: "large",
-          width: 400, // Fixed width to ensure consistency
-          text: "signin_with",
-          shape: "rectangular",
-          locale: "en"
-        }
-      );
     }
   }, []);
 
@@ -230,10 +210,24 @@ const LoginContent = () => {
                 </div>
               ) : (
                 <div 
-                  ref={googleButtonRef} 
-                  className="flex justify-center w-full"
-                  style={{ minHeight: '44px' }}
-                />
+                  style={{ 
+                    width: '100%', 
+                    display: 'flex', 
+                    justifyContent: 'center',
+                    minHeight: '44px'
+                  }}
+                  className="google-button-wrapper"
+                >
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme="filled_blue"
+                    shape="rectangular"
+                    width="400"
+                    text="signin_with"
+                    locale="en"
+                  />
+                </div>
               )}
             </div>
 
