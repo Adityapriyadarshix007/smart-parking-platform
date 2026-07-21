@@ -209,24 +209,18 @@ const LoginContent = () => {
                   <span className="text-gray-600">Verifying...</span>
                 </div>
               ) : (
-                <div 
-                  style={{ 
-                    width: '100%', 
-                    display: 'flex', 
-                    justifyContent: 'center',
-                    minHeight: '44px'
-                  }}
-                  className="google-button-wrapper"
-                >
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleError}
-                    theme="filled_blue"
-                    shape="rectangular"
-                    width="400"
-                    text="signin_with"
-                    locale="en"
-                  />
+                <div className="w-full flex justify-center">
+                  <div className="w-full max-w-[368px] flex justify-center min-h-[44px] google-button-wrapper">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      theme="filled_blue"
+                      shape="rectangular"
+                      width={368}
+                      text="signin_with"
+                      locale="en"
+                    />
+                  </div>
                 </div>
               )}
             </div>

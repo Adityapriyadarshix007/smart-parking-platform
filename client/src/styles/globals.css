@@ -562,3 +562,56 @@ button:active,
 button {
   -webkit-tap-highlight-color: transparent;
 }
+
+ /* ============================================ */
+/* FIX FOR GOOGLE LOGIN BUTTON */
+/* ============================================ */
+
+.google-button-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.google-button-wrapper > div {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.google-button-wrapper iframe {
+  width: 100% !important;
+  min-width: 300px !important;
+  max-width: 368px !important;
+}
+
+/* Fix for preselected buttons - remove unwanted focus outlines */
+button:focus, 
+.btn-primary:focus, 
+.btn-secondary:focus, 
+.btn-outline:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+button:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-outline:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Fix for any default active button states */
+button:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-outline:active {
+  transform: scale(0.98);
+}
+
+/* Remove default button highlight on mobile */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
