@@ -214,7 +214,7 @@ const LoginContent = () => {
               </div>
             </div>
 
-            {/* Google Button - Modern Style with Centering */}
+            {/* Google Button - With Pre-details Support */}
             <div className="mb-4">
               {googleLoading ? (
                 <div className="w-full py-3 bg-gray-100 rounded-xl flex items-center justify-center gap-2">
@@ -233,6 +233,9 @@ const LoginContent = () => {
                       text="signin_with"
                       locale="en"
                       logo_alignment="left"
+                      // These props help show pre-login details
+                      ux_mode="popup"
+                      auto_select={true}
                     />
                   </div>
                 </div>
