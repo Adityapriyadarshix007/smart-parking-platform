@@ -199,33 +199,26 @@ const LoginContent = () => {
               </div>
             </div>
 
-            {/* Google Login Section - Centered */}
-            <div className="mt-2 mb-6">
+            {/* Google Login Section - FULLY CENTERED */}
+            <div className="mt-2 mb-6 flex justify-center w-full">
               {googleLoading ? (
-                <div className="w-full h-11 rounded-lg bg-gray-100 flex items-center justify-center">
+                <div className="w-full max-w-[384px] h-11 rounded-lg bg-gray-100 flex items-center justify-center">
                   <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   <span className="ml-2 text-sm text-gray-600">Verifying...</span>
                 </div>
               ) : (
-                <div className="flex justify-center w-full">
-                  <div className="google-button-container" style={{ 
-                    width: '100%', 
-                    maxWidth: '384px',
-                    display: 'flex',
-                    justifyContent: 'center'
-                  }}>
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={handleGoogleError}
-                      theme="filled_blue"
-                      size="large"
-                      shape="pill"
-                      text="continue_with"
-                      logo_alignment="left"
-                      width={384}
-                      locale="en"
-                    />
-                  </div>
+                <div className="w-full max-w-[384px] flex justify-center google-button-wrapper">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme="filled_blue"
+                    size="large"
+                    shape="pill"
+                    text="continue_with"
+                    logo_alignment="left"
+                    width={384}
+                    locale="en"
+                  />
                 </div>
               )}
             </div>
