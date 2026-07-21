@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import authService from '../../services/authService';
 
@@ -15,8 +15,6 @@ const LoginContent = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
-  const googleButtonRef = useRef(null);
-  const [isGoogleInitialized, setIsGoogleInitialized] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,76 +90,12 @@ const LoginContent = () => {
     setGoogleLoading(false);
   };
 
-  // Initialize Google Sign-In button
-  useEffect(() => {
+  React.useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberEmail');
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRememberMe(true);
     }
-
-    // Load Google Identity Services script if not already loaded
-    const loadGoogleScript = () => {
-      if (!window.google) {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-          console.log('Google script loaded');
-          initializeGoogleButton();
-        };
-        document.body.appendChild(script);
-      } else {
-        initializeGoogleButton();
-      }
-    };
-
-    const initializeGoogleButton = () => {
-      if (!window.google || !window.google.accounts || !googleButtonRef.current) {
-        console.log('Google not ready yet');
-        return;
-      }
-
-      try {
-        // Clear any existing button
-        googleButtonRef.current.innerHTML = '';
-        
-        // Initialize the Google button
-        window.google.accounts.id.initialize({
-          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || "8901631209-8vg2le8m50ade206aoup0ni47pti4r8v.apps.googleusercontent.com",
-          callback: handleGoogleSuccess,
-          cancel_on_tap_outside: false
-        });
-
-        // Render the button
-        window.google.accounts.id.renderButton(
-          googleButtonRef.current,
-          {
-            type: "standard",
-            theme: "filled_blue",
-            size: "large",
-            text: "signin_with",
-            shape: "rectangular",
-            logo_alignment: "left",
-            width: 400
-          }
-        );
-        
-        setIsGoogleInitialized(true);
-        console.log('Google button rendered successfully');
-      } catch (error) {
-        console.error('Error initializing Google button:', error);
-      }
-    };
-
-    // Load script and initialize
-    loadGoogleScript();
-
-    // Cleanup
-    return () => {
-      // Optional cleanup if needed
-    };
   }, []);
 
   return (
@@ -276,15 +210,24 @@ const LoginContent = () => {
                 </div>
               ) : (
                 <div 
-                  ref={googleButtonRef} 
                   style={{ 
                     width: '100%', 
                     display: 'flex', 
                     justifyContent: 'center',
                     minHeight: '44px'
                   }}
-                  className="google-button-container"
-                />
+                  className="google-button-wrapper"
+                >
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme="filled_blue"
+                    shape="rectangular"
+                    width="400"
+                    text="signin_with"
+                    locale="en"
+                  />
+                </div>
               )}
             </div>
 
