@@ -564,23 +564,34 @@ button {
 }
 
 /* ============================================ */
-/* GOOGLE LOGIN BUTTON - PRODUCTION STYLING */
+/* GOOGLE LOGIN BUTTON - CENTERED & MODERN */
 /* ============================================ */
 
-.google-login-wrapper {
+.google-button-container {
   width: 100%;
+  max-width: 384px;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
-.google-login-wrapper > div {
-  width: 100%;
-  display: flex;
-  justify-content: center;
+.google-button-container > div {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
 }
 
-.google-login-wrapper iframe {
-  border-radius: 12px !important;
+.google-button-container iframe {
+  border-radius: 50px !important; /* Pill shape */
+  width: 100% !important;
+  min-width: 300px !important;
+  max-width: 384px !important;
+  height: 44px !important;
+}
+
+/* Remove any default padding/margin that might affect centering */
+.google-button-container * {
+  margin: 0 auto !important;
 }
 
 /* ============================================ */

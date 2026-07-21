@@ -58,18 +58,15 @@ const LoginContent = () => {
       console.log('Google verification response:', data);
       
       if (data.success) {
-        // Store token and user data directly
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Also try to update auth context if available
         if (googleLogin) {
           await googleLogin(data.user, data.token);
         }
         
         toast.success('Google login successful! Redirecting...');
         
-        // Force redirect to dashboard
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 500);
@@ -202,7 +199,7 @@ const LoginContent = () => {
               </div>
             </div>
 
-            {/* Google Login Section - Production Ready */}
+            {/* Google Login Section - Centered */}
             <div className="mt-2 mb-6">
               {googleLoading ? (
                 <div className="w-full h-11 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -210,8 +207,13 @@ const LoginContent = () => {
                   <span className="ml-2 text-sm text-gray-600">Verifying...</span>
                 </div>
               ) : (
-                <div className="w-full flex justify-center">
-                  <div className="w-full max-w-[384px] google-login-wrapper">
+                <div className="flex justify-center w-full">
+                  <div className="google-button-container" style={{ 
+                    width: '100%', 
+                    maxWidth: '384px',
+                    display: 'flex',
+                    justifyContent: 'center'
+                  }}>
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
                       onError={handleGoogleError}
