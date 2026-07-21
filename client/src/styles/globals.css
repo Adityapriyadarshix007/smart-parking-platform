@@ -562,3 +562,27 @@ button:active,
 button {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ============================================ */
+/* GOOGLE LOGIN BUTTON - PRODUCTION STYLING */
+/* ============================================ */
+
+.google-login-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.google-login-wrapper > div {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.google-login-wrapper iframe {
+  border-radius: 12px !important;
+}
+
+/* ============================================ */
+/* END OF GOOGLE LOGIN BUTTON STYLING */
+/* ============================================ */

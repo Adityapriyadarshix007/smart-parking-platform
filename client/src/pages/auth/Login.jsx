@@ -202,22 +202,29 @@ const LoginContent = () => {
               </div>
             </div>
 
-            <div className="mb-4">
+            {/* Google Login Section - Production Ready */}
+            <div className="mt-2 mb-6">
               {googleLoading ? (
-                <div className="w-full py-2.5 bg-gray-100 rounded-lg flex items-center justify-center gap-2">
+                <div className="w-full h-11 rounded-lg bg-gray-100 flex items-center justify-center">
                   <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-gray-600">Verifying...</span>
+                  <span className="ml-2 text-sm text-gray-600">Verifying...</span>
                 </div>
               ) : (
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  theme="filled_blue"
-                  shape="rectangular"
-                  width="100%"
-                  text="signin_with"
-                  locale="en"
-                />
+                <div className="w-full flex justify-center">
+                  <div className="w-full max-w-[384px] google-login-wrapper">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      theme="filled_blue"
+                      size="large"
+                      shape="pill"
+                      text="continue_with"
+                      logo_alignment="left"
+                      width={384}
+                      locale="en"
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
