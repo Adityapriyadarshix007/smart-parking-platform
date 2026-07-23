@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { BASE_URL } from '../../config/apiConfig';
 
 const Profile = () => {
   const { user, logout } = useAuth();
@@ -21,7 +22,8 @@ const Profile = () => {
     memberSince: ''
   });
 
-  // Validate phone number
+  const API_URL = `${BASE_URL}/api/v1`;
+
   const validatePhone = (phone) => {
     const cleanNumber = phone.replace(/\D/g, '');
     
@@ -62,6 +64,31 @@ const Profile = () => {
     return `${day} ${month} ${year}`;
   };
 
+  const fetchUserStats = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found, skipping stats fetch');
+        return;
+      }
+      
+      const response = await axios.get(`${API_URL}/bookings/my-bookings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const bookings = response.data.data || [];
+      const totalSpent = bookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      
+      setStats({
+        totalBookings: bookings.length,
+        totalSpent: totalSpent,
+        memberSince: user?.createdAt ? formatDate(user.createdAt) : '2024'
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, [user?.createdAt, API_URL]);
+
   useEffect(() => {
     if (user) {
       const userData = {
@@ -73,27 +100,7 @@ const Profile = () => {
       setOriginalData(userData);
       fetchUserStats();
     }
-  }, [user]);
-
-  const fetchUserStats = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const bookings = response.data.data;
-      const totalSpent = bookings.reduce((sum, b) => sum + b.totalPrice, 0);
-      
-      setStats({
-        totalBookings: bookings.length,
-        totalSpent: totalSpent,
-        memberSince: user?.createdAt ? formatDate(user.createdAt) : '2024'
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+  }, [user, fetchUserStats]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -125,7 +132,13 @@ const Profile = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put('https://smart-parking-backend-tefg.onrender.com/api/v1/auth/profile', 
+      if (!token) {
+        toast.error('Please login again');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await axios.put(`${API_URL}/auth/profile`, 
         { name: formData.name, phone: formData.phone },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -141,6 +154,8 @@ const Profile = () => {
         localStorage.setItem('user', JSON.stringify(storedUser));
         
         setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error(response.data.message || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Update error:', error);
@@ -178,7 +193,6 @@ const Profile = () => {
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-12">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -191,7 +205,6 @@ const Profile = () => {
             <p className="text-blue-100 mt-1">{user?.email || ''}</p>
           </motion.div>
 
-          {/* Stats Cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-6">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -226,7 +239,6 @@ const Profile = () => {
             </motion.div>
           </div>
 
-          {/* Profile Form */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

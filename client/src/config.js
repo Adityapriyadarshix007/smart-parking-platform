@@ -2,10 +2,10 @@
 const getApiUrl = () => {
   // Production (Vercel)
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://smart-parking-backend-tefg.onrender.com';
+    return process.env.REACT_APP_API_URL || '${BASE_URL}';
   }
   // Development (localhost)
-  return process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  return process.env.REACT_APP_API_URL || '${BASE_URL}';
 };
 
 export const API_URL = getApiUrl();

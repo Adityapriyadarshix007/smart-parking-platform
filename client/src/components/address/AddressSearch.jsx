@@ -16,6 +16,7 @@ const AddressSearch = forwardRef(({ onLocationSelect, placeholder = "Search for 
     getValue: () => query
   }));
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const searchAddress = useCallback(
     debounce(async (searchQuery) => {
       if (!searchQuery.trim() || searchQuery.length < 3) {

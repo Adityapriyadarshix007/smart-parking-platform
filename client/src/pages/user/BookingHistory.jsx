@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BASE_URL } from '../../config/apiConfig';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -8,8 +9,8 @@ const BookingHistory = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
-  // ✅ State for cancellation dialog
   const [cancelDialog, setCancelDialog] = useState({
     isOpen: false,
     bookingId: null,
@@ -18,12 +19,10 @@ const BookingHistory = () => {
     isProcessing: false
   });
   
-  // Debounce and rate limiting refs
-  const fetchInProgress = useRef(false);
-  const lastFetchTime = useRef(0);
   const abortControllerRef = useRef(null);
 
-  // ✅ ALL DATES IN IST
+  const API_URL = `${BASE_URL}/api/v1`;
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -60,7 +59,6 @@ const BookingHistory = () => {
     });
   };
 
-  // ✅ Receipt uses IST
   const formatDateIST = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString('en-IN', {
@@ -89,18 +87,14 @@ const BookingHistory = () => {
     return booking.status;
   };
 
-  // ✅ FIXED: Get slot display with proper deletion detection
   const getSlotDisplay = (booking) => {
-    // ✅ Priority 1: slotId is populated with full slot object (slot exists)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return {
         title: booking.slotId.title,
         location: {
           address: booking.slotId.location?.address || 'Address not available',
           city: booking.slotId.location?.city || '',
-          state: booking.slotId.location?.state || '',
-          pincode: booking.slotId.location?.pincode || '',
-          landmark: booking.slotId.location?.landmark || ''
+          state: booking.slotId.location?.state || ''
         },
         pricing: booking.slotId.pricing,
         isFromSnapshot: false,
@@ -109,10 +103,7 @@ const BookingHistory = () => {
       };
     }
     
-    // ✅ Priority 2: slotSnapshot (permanent storage)
-    // Only use snapshot if slotId is null OR slotId is a string (not populated)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
-      // Check if slotId exists and is not null
       const hasValidSlotId = booking.slotId && typeof booking.slotId !== 'string';
       
       return {
@@ -120,33 +111,15 @@ const BookingHistory = () => {
         location: {
           address: booking.slotSnapshot.location?.address || 'Address not available',
           city: booking.slotSnapshot.location?.city || '',
-          state: booking.slotSnapshot.location?.state || '',
-          pincode: booking.slotSnapshot.location?.pincode || '',
-          landmark: booking.slotSnapshot.location?.landmark || ''
+          state: booking.slotSnapshot.location?.state || ''
         },
         pricing: booking.slotSnapshot.pricing,
         isFromSnapshot: true,
-        // ✅ Only mark as deleted if isDeleted is explicitly true AND no valid slotId
         isDeleted: (booking.slotSnapshot.isDeleted === true) && !hasValidSlotId,
         slotExists: hasValidSlotId
       };
     }
     
-    // ✅ Priority 3: slotDisplay (legacy field)
-    if (booking.slotDisplay && booking.slotDisplay.title) {
-      return {
-        title: booking.slotDisplay.title,
-        location: {
-          address: booking.slotDisplay.location?.address || 'Address not available',
-          city: booking.slotDisplay.location?.city || ''
-        },
-        isFromSnapshot: false,
-        isDeleted: false,
-        slotExists: false
-      };
-    }
-    
-    // ✅ Priority 4: Fallback - show meaningful message
     return {
       title: '📍 Parking Location (Removed)',
       location: {
@@ -159,81 +132,33 @@ const BookingHistory = () => {
     };
   };
 
-  // ✅ FIXED: Only show Archived if slot is truly deleted
-  const isFromSnapshot = (booking) => {
-    // If slotId exists and is populated (object with title), it's NOT archived
-    if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
-      return false;
-    }
-    
-    // If slotId is a string ID (not populated), it might still exist
-    // Don't show archived for unpopulated slotId - it's an API issue
-    if (booking.slotId && typeof booking.slotId === 'string') {
-      return false;
-    }
-    
-    // Only show archived if:
-    // 1. slotSnapshot exists with title
-    // 2. slotId is null
-    // 3. isDeleted is explicitly true in the snapshot
-    if (booking.slotSnapshot && booking.slotSnapshot.title && !booking.slotId) {
-      return booking.slotSnapshot.isDeleted === true;
-    }
-    
-    return false;
-  };
-
-  const getBookingsEndpoint = (role) => {
-    if (role === 'admin') {
-      return 'https://smart-parking-backend-tefg.onrender.com/api/v1/admin/bookings';
-    }
-    return 'https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings';
-  };
-
-  const filterBookingsForCurrentUser = (allBookings, currentUserId) => {
-    return allBookings.filter(booking => {
-      const bookingUserId = booking.userId?._id || booking.userId;
-      return bookingUserId === currentUserId;
-    });
-  };
-
+  // ✅ Fixed: Properly handle AbortController
   const fetchBookings = useCallback(async () => {
+    // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     
-    const now = Date.now();
-    if (now - lastFetchTime.current < 2000) {
-      console.log('⏳ Rate limited');
-      return;
-    }
-    
-    if (fetchInProgress.current) {
-      console.log('⏳ Fetch already in progress');
-      return;
-    }
-    
-    fetchInProgress.current = true;
-    lastFetchTime.current = now;
+    // Create new AbortController
     abortControllerRef.current = new AbortController();
     
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         setLoading(false);
-        fetchInProgress.current = false;
         return;
       }
       
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const currentUserId = user.id || user._id;
       const role = user.role || 'user';
       
       setUserRole(role);
       console.log('🔍 Fetching bookings for user:', user.email || user.name);
-      console.log('👤 User role:', role);
       
-      const endpoint = getBookingsEndpoint(role);
+      const endpoint = role === 'admin' 
+        ? `${API_URL}/admin/bookings` 
+        : `${API_URL}/bookings/my-bookings`;
+      
       console.log('📡 Using endpoint:', endpoint);
       
       const response = await axios.get(endpoint, {
@@ -246,7 +171,11 @@ const BookingHistory = () => {
       
       if (role === 'admin') {
         const allBookings = response.data.data || [];
-        myBookings = filterBookingsForCurrentUser(allBookings, currentUserId);
+        const currentUserId = user.id || user._id;
+        myBookings = allBookings.filter(booking => {
+          const bookingUserId = booking.userId?._id || booking.userId;
+          return bookingUserId === currentUserId;
+        });
       } else {
         myBookings = response.data.data || [];
       }
@@ -254,34 +183,40 @@ const BookingHistory = () => {
       console.log(`✅ Loaded ${myBookings.length} bookings`);
       setBookings(myBookings);
       
+      // Show toast only once
+      if (!dataLoaded && myBookings.length > 0) {
+        toast.success(`Loaded ${myBookings.length} bookings`);
+        setDataLoaded(true);
+      } else if (!dataLoaded) {
+        setDataLoaded(true);
+      }
+      
     } catch (error) {
-      if (error.name === 'AbortError') return;
-      if (error.response?.status === 403) {
-        try {
-          const token = localStorage.getItem('token');
-          const fallbackResponse = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 15000
-          });
-          setBookings(fallbackResponse.data.data || []);
-        } catch (fallbackError) {
-          console.error('Fallback failed:', fallbackError);
-          toast.error('Unable to load bookings');
-        }
-      } else if (error.response?.status === 429) {
-        toast.error('Too many requests. Please wait.');
-      } else {
-        console.error('Error fetching bookings:', error);
+      // ✅ Skip AbortError - it's just cleanup
+      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+        console.log('Request was cancelled (cleanup)');
+        return;
+      }
+      console.error('Error fetching bookings:', error);
+      if (!dataLoaded) {
         toast.error('Failed to load bookings');
+        setDataLoaded(true);
       }
     } finally {
       setLoading(false);
-      fetchInProgress.current = false;
-      abortControllerRef.current = null;
     }
-  }, []);
+  }, [API_URL, dataLoaded]);
 
-  // ✅ Open cancellation dialog
+  // ✅ Fixed: Cleanup on unmount
+  useEffect(() => {
+    fetchBookings();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchBookings]);
+
   const openCancelDialog = (booking) => {
     const slotData = getSlotDisplay(booking);
     setCancelDialog({
@@ -293,12 +228,10 @@ const BookingHistory = () => {
     });
   };
 
-  // ✅ Close cancellation dialog
   const closeCancelDialog = () => {
     setCancelDialog(prev => ({ ...prev, isOpen: false, reason: '', isProcessing: false }));
   };
 
-  // ✅ Process cancellation with reason
   const processCancellation = async () => {
     if (!cancelDialog.bookingId) return;
     
@@ -306,7 +239,7 @@ const BookingHistory = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/${cancelDialog.bookingId}/cancel`, {
+      await axios.put(`${API_URL}/bookings/${cancelDialog.bookingId}/cancel`, {
         reason: cancelDialog.reason || 'Cancelled by user'
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -394,15 +327,6 @@ For support: support@smartpark.com | +91 98765 43210
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
-  useEffect(() => {
-    fetchBookings();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [fetchBookings]);
-
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
@@ -417,9 +341,6 @@ For support: support@smartpark.com | +91 98765 43210
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">My Bookings</h1>
           <p className="text-gray-600">View and manage all your parking reservations</p>
-          {userRole && (
-            <p className="text-xs text-gray-400 mt-1">Logged in as: {userRole}</p>
-          )}
         </div>
 
         {bookings.length === 0 ? (
@@ -436,8 +357,6 @@ For support: support@smartpark.com | +91 98765 43210
             {bookings.map((booking, index) => {
               const displayStatus = getDisplayStatus(booking);
               const slotData = getSlotDisplay(booking);
-              // ✅ Fixed: Only show archived if truly deleted
-              const isArchived = isFromSnapshot(booking);
               const isDeleted = slotData.isDeleted;
               
               return (
@@ -468,15 +387,9 @@ For support: support@smartpark.com | +91 98765 43210
                           <h3 className="text-xl font-bold text-gray-800 mb-1">
                             📍 {slotData.title || 'Parking Location'}
                           </h3>
-                          {/* ✅ Only show Archived if truly deleted */}
-                          {isArchived && (
+                          {isDeleted && (
                             <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
-                              Archived
-                            </span>
-                          )}
-                          {isDeleted && !isArchived && (
-                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
-                              Deleted
+                              Removed
                             </span>
                           )}
                         </div>
@@ -484,11 +397,6 @@ For support: support@smartpark.com | +91 98765 43210
                           {slotData.location?.address || 'Address information not available'}
                         </p>
                         <p className="text-gray-500 text-xs mt-1">{slotData.location?.city || ''}</p>
-                        {isDeleted && (
-                          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                            <span>⚠️</span> This parking location has been removed from the platform
-                          </p>
-                        )}
                       </div>
                       <div className="text-right">
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(displayStatus)}`}>
@@ -582,11 +490,6 @@ For support: support@smartpark.com | +91 98765 43210
                             ⚠️ This parking location has been removed from the platform. This is your permanent booking record.
                           </div>
                         )}
-                        {isArchived && !isDeleted && (
-                          <div className="mt-3 p-2 bg-yellow-50 rounded-lg text-xs text-yellow-700">
-                            ℹ️ This parking space is no longer available on the platform. This is your permanent booking record.
-                          </div>
-                        )}
                       </motion.div>
                     )}
                   </div>
@@ -597,7 +500,6 @@ For support: support@smartpark.com | +91 98765 43210
         )}
       </div>
 
-      {/* ✅ Cancellation Dialog Modal */}
       <AnimatePresence>
         {cancelDialog.isOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

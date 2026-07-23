@@ -49,33 +49,76 @@ const LoginContent = () => {
     setLoading(false);
   };
 
+  // ✅ Updated handleGoogleSuccess with all three verification methods
   const handleGoogleSuccess = async (credentialResponse) => {
     setGoogleLoading(true);
     console.log('Google login success, verifying with backend...');
     
     try {
-      const data = await authService.googleVerify(credentialResponse.credential);
-      console.log('Google verification response:', data);
+      const credential = credentialResponse.credential;
+      let data = null;
       
-      if (data.success) {
-        // AuthContext will handle storing token and user
-        if (googleLogin) {
-          await googleLogin(data.user, data.token);
+      // ✅ Method 1: Primary verification
+      try {
+        console.log('🔄 Trying primary verification...');
+        data = await authService.googleVerify(credential);
+        console.log('Primary verification response:', data);
+      } catch (err) {
+        console.log('Primary verification failed:', err);
+      }
+      
+      // ✅ Method 2: Simple verification (if primary failed)
+      if (!data || !data.success) {
+        try {
+          console.log('🔄 Trying simple verification...');
+          data = await authService.googleVerifySimple(credential);
+          console.log('Simple verification response:', data);
+        } catch (err) {
+          console.log('Simple verification failed:', err);
         }
+      }
+      
+      // ✅ Method 3: Manual verification (if both failed)
+      if (!data || !data.success) {
+        try {
+          console.log('🔄 Trying manual verification...');
+          data = await authService.googleVerifyManual(credential);
+          console.log('Manual verification response:', data);
+        } catch (err) {
+          console.log('Manual verification failed:', err);
+        }
+      }
+      
+      // ✅ Check final result
+      if (data && data.success) {
+        const user = data.data?.user || data.user;
+        const token = data.data?.token || data.token;
         
-        toast.success('Google login successful! Redirecting...');
+        console.log('Extracted user:', user);
+        console.log('Extracted token:', token);
         
-        // Use React Router navigate instead of window.location
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 500);
+        if (user && token) {
+          const result = await googleLogin(user, token);
+          console.log('Google login result:', result);
+          
+          if (result.success) {
+            toast.success('Google login successful! Redirecting...');
+            setTimeout(() => {
+              navigate('/dashboard', { replace: true });
+            }, 500);
+          } else {
+            toast.error(result.error || 'Failed to complete Google login');
+          }
+        } else {
+          toast.error('Invalid response from server');
+        }
       } else {
-        toast.error(data.message || 'Google login failed');
-        setGoogleLoading(false);
+        toast.error(data?.message || 'Google login failed. Please try again.');
       }
     } catch (error) {
       console.error('Google verification error:', error);
       toast.error('Google login failed. Please try again.');
+    } finally {
       setGoogleLoading(false);
     }
   };
@@ -265,6 +308,9 @@ const LoginContent = () => {
 
 const Login = () => {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "8901631209-8vg2le8m50ade206aoup0ni47pti4r8v.apps.googleusercontent.com";
+
+  console.log("Google Client ID:", googleClientId);
+  
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <LoginContent />

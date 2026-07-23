@@ -1,357 +1,380 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaArrowLeft, FaSearch, FaSyncAlt, FaUsers, FaTrash, FaEdit, FaSave, FaTimes, FaUserPlus } from 'react-icons/fa';
+import { adminApiService } from '../../services/adminApiService';
+import toast from 'react-hot-toast';
 
 const ManageUsers = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [hideAdmins, setHideAdmins] = useState(false);
-  const [currentAdminId, setCurrentAdminId] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', phone: '', role: '', isVerified: false });
-  const [updatingRole, setUpdatingRole] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'user',
+    password: ''
+  });
+  const toastShownRef = useRef(false);
 
-  useEffect(() => {
-    fetchUsers();
-    // Get current logged-in admin ID
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    setCurrentAdminId(user.id);
-  }, []);
+  const API_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://smart-parking-backend-tefg.onrender.com/api/v1'
+    : 'http://localhost:5001/api/v1';
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUsers(response.data.data);
+      const response = await adminApiService.getUsers();
+      
+      if (response && response.success) {
+        const usersData = response.data || [];
+        setUsers(usersData);
+        setFilteredUsers(usersData);
+        
+        if (!toastShownRef.current) {
+          toast.success(`Loaded ${usersData.length} users`);
+          toastShownRef.current = true;
+        }
+      }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      console.error('❌ Error:', error);
+      if (!toastShownRef.current) {
+        toast.error('Failed to load users');
+        toastShownRef.current = true;
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
-  const handleDeleteUser = async (userId, userRole) => {
-    if (userRole === 'admin') {
-      toast.error('Cannot delete admin users from this panel');
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredUsers(users);
       return;
     }
-    
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
-    
+
+    const search = searchTerm.toLowerCase();
+    const filtered = users.filter(u =>
+      u.name?.toLowerCase().includes(search) ||
+      u.email?.toLowerCase().includes(search) ||
+      u.phone?.toLowerCase().includes(search) ||
+      u.role?.toLowerCase().includes(search)
+    );
+    setFilteredUsers(filtered);
+  }, [searchTerm, users]);
+
+  // ✅ Add new user
+  const handleAddUser = async () => {
+    if (!editForm.name || !editForm.email || !editForm.password) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: editForm.name,
+          email: editForm.email,
+          password: editForm.password,
+          phone: editForm.phone || '',
+          role: editForm.role
+        })
       });
-      toast.success('User deleted successfully');
-      fetchUsers();
+      const data = await response.json();
+
+      if (data && data.success) {
+        toast.success('User added successfully!');
+        setShowAddModal(false);
+        setEditForm({ name: '', email: '', phone: '', role: 'user', password: '' });
+        fetchUsers();
+      } else {
+        toast.error(data.message || 'Failed to add user');
+      }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete user');
+      console.error('Error adding user:', error);
+      toast.error('Failed to add user');
     }
   };
 
-  const handleUpdateRole = async (userId, newRole) => {
-    // Don't allow changing own role
-    if (userId === currentAdminId) {
-      toast.error('You cannot change your own role. Ask another admin to change it.');
-      return;
-    }
-    
-    setUpdatingRole(true);
-    try {
-      const token = localStorage.getItem('token');
-      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users/${userId}/role`, 
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`User role updated to ${newRole} successfully`);
-      fetchUsers();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update role');
-    } finally {
-      setUpdatingRole(false);
-    }
-  };
-
-  const handleEditUser = (user) => {
-    setSelectedUser(user);
+  // ✅ Edit user
+  const handleEdit = (user) => {
+    setEditingUser(user._id);
     setEditForm({
-      name: user.name,
+      name: user.name || '',
+      email: user.email || '',
       phone: user.phone || '',
-      role: user.role,
-      isVerified: user.isVerified
+      role: user.role || 'user',
+      password: ''
     });
-    setShowEditModal(true);
   };
 
+  // ✅ Save edit
   const handleSaveEdit = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users/${selectedUser._id}`,
-        { name: editForm.name, phone: editForm.phone, isVerified: editForm.isVerified },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('User updated successfully');
-      setShowEditModal(false);
-      fetchUsers();
+      
+      // First update role
+      const roleResponse = await fetch(`${API_URL}/admin/users/${editingUser}/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: editForm.role })
+      });
+      const roleData = await roleResponse.json();
+
+      if (roleData && roleData.success) {
+        toast.success('User updated successfully!');
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        toast.error(roleData.message || 'Failed to update user');
+      }
     } catch (error) {
+      console.error('Error updating user:', error);
       toast.error('Failed to update user');
     }
   };
 
+  // ✅ Delete user
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+
+      if (data && data.success) {
+        toast.success('User deleted successfully!');
+        fetchUsers();
+      } else {
+        toast.error(data.message || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    }
+  };
+
   const getRoleBadge = (role) => {
-    const badges = {
+    const colors = {
       admin: 'bg-purple-100 text-purple-700',
       owner: 'bg-orange-100 text-orange-700',
       user: 'bg-blue-100 text-blue-700'
     };
-    return badges[role] || 'bg-gray-100 text-gray-700';
+    return colors[role] || 'bg-gray-100 text-gray-700';
   };
-
-  // Fixed filtering logic
-  const filteredUsers = users.filter(user => {
-    // Search filter
-    const matchesSearch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Role filter
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    
-    // Hide Admins filter - FIXED: Only hide users with role 'admin'
-    const matchesHideAdmins = hideAdmins ? user.role !== 'admin' : true;
-    
-    return matchesSearch && matchesRole && matchesHideAdmins;
-  });
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="spinner"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-600">Loading users...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-md p-6">
-          {/* Header with Back to Dashboard Button */}
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Manage Users</h1>
-              <p className="text-gray-600">View, edit, and manage all user accounts</p>
-            </div>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="back-dashboard-btn"
-              style={{
-                background: '#f1f5f9',
-                border: 'none',
-                padding: '0.6rem 1.2rem',
-                borderRadius: '40px',
-                fontWeight: '600',
-                fontSize: '0.85rem',
-                color: '#1e40af',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#e2e8f0';
-                e.currentTarget.style.transform = 'translateX(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f1f5f9';
-                e.currentTarget.style.transform = 'translateX(0)';
-              }}
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/admin-dashboard')} 
+        className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100"
+      >
+        <FaArrowLeft className="text-sm" /> Back to Dashboard
+      </button>
+
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 mb-8 shadow-xl">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3"><FaUsers /> Manage Users</h1>
+            <p className="text-blue-100 mt-1">View and manage all platform users</p>
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-4 py-2 rounded-full text-white font-semibold flex items-center gap-2 transition-all"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-              Back to Dashboard
+              <FaUserPlus /> Add User
+            </button>
+            <button onClick={fetchUsers} className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-4 py-2 rounded-full text-white font-semibold flex items-center gap-2 transition-all">
+              <FaSyncAlt /> Refresh
             </button>
           </div>
-          
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6 mt-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="owner">Parking Owner</option>
-              <option value="user">Regular User</option>
-            </select>
-            <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer">
-              <input
-                type="checkbox"
-                checked={hideAdmins}
-                onChange={(e) => setHideAdmins(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <span className="text-sm text-gray-700">Hide Admin Users</span>
-            </label>
-          </div>
-          
-          {/* Users Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Name</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Phone</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Role</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Verified</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Joined</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <motion.tr
-                    key={user._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="border-t hover:bg-gray-50"
-                  >
-                    <td className="p-3 text-sm font-medium text-gray-800">
-                      {user.name}
-                      {user._id === currentAdminId && (
-                        <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1 py-0.5 rounded">(You)</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-sm text-gray-600">{user.email}</td>
-                    <td className="p-3 text-sm text-gray-600">{user.phone || 'N/A'}</td>
-                    <td className="p-3">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleUpdateRole(user._id, e.target.value)}
-                        className={`px-2 py-1 rounded-full text-xs font-medium border-none focus:ring-2 focus:ring-blue-500 ${getRoleBadge(user.role)}`}
-                        disabled={user._id === currentAdminId || updatingRole}
-                      >
-                        <option value="user">User</option>
-                        <option value="owner">Owner</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                      {user._id === currentAdminId && (
-                        <div className="text-xs text-gray-400 mt-1">Cannot change own role</div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {user.isVerified ? 'Verified' : 'Pending'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-sm text-gray-600">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="p-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditUser(user)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          Edit
-                        </button>
-                        {user.role !== 'admin' && (
-                          <button
-                            onClick={() => handleDeleteUser(user._id, user.role)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-8 text-gray-500">No users found</div>
-          )}
         </div>
       </div>
 
-      {/* Edit User Modal */}
-      {showEditModal && selectedUser && (
+      <div className="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-100">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="relative flex-1 min-w-[200px]">
+            <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Search by name, email, phone or role..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
+                <th className="px-5 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+                <th className="px-5 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Verified</th>
+                <th className="px-5 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr><td colSpan="6" className="px-5 py-8 text-center text-gray-500">No users found</td></tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-4 font-medium">
+                      {editingUser === user._id ? (
+                        <input type="text" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="border rounded px-2 py-1 w-full" />
+                      ) : (
+                        user.name || 'N/A'
+                      )}
+                    </td>
+                    <td className="px-5 py-4">{user.email || 'N/A'}</td>
+                    <td className="px-5 py-4">
+                      {editingUser === user._id ? (
+                        <input type="text" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="border rounded px-2 py-1 w-full" />
+                      ) : (
+                        user.phone || 'N/A'
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      {editingUser === user._id ? (
+                        <select value={editForm.role} onChange={(e) => setEditForm({...editForm, role: e.target.value})} className="border rounded px-2 py-1">
+                          <option value="user">User</option>
+                          <option value="owner">Owner</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadge(user.role)}`}>
+                          {user.role?.toUpperCase() || 'USER'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {user.isVerified ? '✅ Yes' : '❌ No'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        {editingUser === user._id ? (
+                          <>
+                            <button onClick={handleSaveEdit} className="bg-green-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-green-600 flex items-center gap-1">
+                              <FaSave /> Save
+                            </button>
+                            <button onClick={() => setEditingUser(null)} className="bg-gray-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-gray-600 flex items-center gap-1">
+                              <FaTimes /> Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => handleEdit(user)} className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-600 flex items-center gap-1">
+                              <FaEdit /> Edit
+                            </button>
+                            <button onClick={() => handleDelete(user._id)} className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-red-600 flex items-center gap-1">
+                              <FaTrash /> Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-3 bg-gray-50 text-sm text-gray-600 border-t border-gray-100">Showing {filteredUsers.length} of {users.length} users</div>
+      </div>
+
+      {/* Add User Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
-          >
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Edit User</h2>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <FaUserPlus /> Add New User
+            </h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={editForm.isVerified}
-                    onChange={(e) => setEditForm({...editForm, isVerified: e.target.checked})}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <span className="text-sm text-gray-700">Verified User</span>
-                </label>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleSaveEdit}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                  Save Changes
-                </button>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition"
-                >
-                  Cancel
-                </button>
-              </div>
+              <input
+                type="text"
+                placeholder="Full Name *"
+                value={editForm.name}
+                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="email"
+                placeholder="Email *"
+                value={editForm.email}
+                onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="password"
+                placeholder="Password *"
+                value={editForm.password}
+                onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={editForm.role}
+                onChange={(e) => setEditForm({...editForm, role: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg"
+              >
+                <option value="user">User</option>
+                <option value="owner">Owner</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
-          </motion.div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={handleAddUser} className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">Add User</button>
+              <button onClick={() => { setShowAddModal(false); setEditForm({ name: '', email: '', phone: '', role: 'user', password: '' }); }} className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400">Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

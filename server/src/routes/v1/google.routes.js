@@ -3,6 +3,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 const User = require('../../models/User.model');
+const { googleVerify, googleVerifySimple } = require('../../controllers/authController');
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ passport.deserializeUser(async (id, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:5001/api/v1/auth/google/callback"
+    callbackURL: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback`
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -38,8 +39,10 @@ passport.use(new GoogleStrategy({
           phone: '0000000000',
           role: 'user',
           isVerified: true,
-          profileImage: profile.photos[0]?.value
+          profileImage: profile.photos[0]?.value,
+          googleId: profile.id
         });
+        console.log(`✅ New user created via Passport Google: ${user.email}`);
       }
       
       return done(null, user);
@@ -49,20 +52,28 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// Google Auth Routes
+// Google Auth Routes - Redirect to Google
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
+// Google Callback - Redirect back to frontend with token
 router.get('/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
     const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE
+      expiresIn: process.env.JWT_EXPIRE || '30d'
     });
     
-    res.redirect(`${process.env.FRONTEND_URL}/oauth?token=${token}`);
+    // Redirect to frontend with token
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/oauth?token=${token}`);
   }
 );
+
+// API endpoint for Google token verification (used by @react-oauth/google)
+router.post('/verify', googleVerify);
+
+// Simple Google token verification (fallback)
+router.post('/verify-simple', googleVerifySimple);
 
 module.exports = router;

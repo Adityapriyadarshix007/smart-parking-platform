@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User.model');
 const ParkingSlot = require('../models/ParkingSlot.model');
 const Booking = require('../models/Booking.model');
@@ -9,11 +10,12 @@ const getAllUsers = async (req, res) => {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: users });
   } catch (error) {
+    console.error('Get all users error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get dashboard stats - WITH ALL BOOKING COUNTS
+// Get dashboard stats
 const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -21,30 +23,28 @@ const getDashboardStats = async (req, res) => {
     const totalAdmins = await User.countDocuments({ role: 'admin' });
     const totalSlots = await ParkingSlot.countDocuments();
     const totalBookings = await Booking.countDocuments();
-    const totalEarnings = await Booking.aggregate([
-      { $match: { status: { $in: ['confirmed', 'completed'] }, paymentStatus: 'paid' } },
-      { $group: { _id: null, total: { $sum: '$totalPrice' } } }
-    ]);
     
-    // ✅ ADD THESE - Actual booking status counts from database
+    // Calculate total earnings from ALL bookings with totalPrice
+    const allBookings = await Booking.find();
+    const totalEarnings = allBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    
+    // Booking status counts - using actual status values from DB
     const confirmedBookings = await Booking.countDocuments({ status: 'confirmed' });
     const pendingBookings = await Booking.countDocuments({ status: 'pending' });
     const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
     const completedBookings = await Booking.countDocuments({ status: 'completed' });
+    const expiredBookings = await Booking.countDocuments({ status: 'expired' });
     
-    const recentBookings = await Booking.find()
-      .populate('userId', 'name email')
-      .populate('slotId', 'title location')
-      .sort({ createdAt: -1 })
-      .limit(10);
-    
-    const recentUsers = await User.find()
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .limit(10);
-    
-    const pendingListings = await ParkingSlot.countDocuments({ status: 'pending', isVerified: false });
-    const unreadMessages = await Message.countDocuments({ status: 'unread' });
+    console.log('📊 Stats calculated:', {
+      totalUsers,
+      totalSlots,
+      totalBookings,
+      totalEarnings,
+      confirmedBookings,
+      pendingBookings,
+      cancelledBookings,
+      expiredBookings
+    });
     
     res.status(200).json({
       success: true,
@@ -54,15 +54,12 @@ const getDashboardStats = async (req, res) => {
         totalAdmins,
         totalSlots,
         totalBookings,
-        totalEarnings: totalEarnings[0]?.total || 0,
-        pendingListings,
-        unreadMessages,
+        totalEarnings,
         confirmedBookings,
         pendingBookings,
         cancelledBookings,
         completedBookings,
-        recentBookings,
-        recentUsers
+        expiredBookings
       }
     });
   } catch (error) {
@@ -79,6 +76,7 @@ const getAllParkingSlots = async (req, res) => {
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: slots });
   } catch (error) {
+    console.error('Get all parking slots error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -239,24 +237,62 @@ const verifyListing = async (req, res) => {
 // Get pending listings (admin)
 const getPendingListings = async (req, res) => {
   try {
-    const listings = await ParkingSlot.find({ status: 'pending', isVerified: false })
-      .populate('ownerId', 'name email phone');
+    const listings = await ParkingSlot.find({ 
+      $or: [
+        { status: 'pending' },
+        { isVerified: false }
+      ]
+    }).populate('ownerId', 'name email phone');
     res.status(200).json({ success: true, data: listings });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get all bookings (admin)
+// ✅ FIXED: Get all bookings with proper population
 const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
-      .populate('userId', 'name email phone')
-      .populate('slotId', 'title location pricing')
-      .sort({ createdAt: -1 });
+    console.log('📊 Fetching all bookings for admin...');
     
-    res.status(200).json({ success: true, data: bookings });
+    // Get all bookings without population first
+    const bookings = await Booking.find().sort({ createdAt: -1 });
+    console.log(`📊 Found ${bookings.length} bookings`);
+    
+    // Manually populate userId for each booking
+    const populatedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        const bookingObj = booking.toObject();
+        
+        // Populate userId
+        if (booking.userId) {
+          try {
+            const user = await User.findById(booking.userId).select('name email phone');
+            bookingObj.userId = user;
+          } catch (err) {
+            console.error('Error populating user:', err);
+            bookingObj.userId = null;
+          }
+        }
+        
+        // Populate slotId
+        if (booking.slotId) {
+          try {
+            const slot = await ParkingSlot.findById(booking.slotId).select('title location pricing');
+            bookingObj.slotId = slot;
+          } catch (err) {
+            console.error('Error populating slot:', err);
+            bookingObj.slotId = null;
+          }
+        }
+        
+        return bookingObj;
+      })
+    );
+    
+    console.log(`✅ Returning ${populatedBookings.length} bookings with populated data`);
+    res.status(200).json({ success: true, data: populatedBookings });
   } catch (error) {
+    console.error('❌ Get all bookings error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -285,6 +321,7 @@ const updateBookingStatus = async (req, res) => {
     
     res.status(200).json({ success: true, data: booking, message: 'Booking status updated' });
   } catch (error) {
+    console.error('Update booking status error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

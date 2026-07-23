@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BASE_URL } from '../../config/apiConfig';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -37,9 +38,9 @@ const OwnerDashboard = () => {
     pricing: { hourly: 30, daily: 150, monthly: 3000 }
   });
 
-  // ✅ IMPROVED: Get slot display from multiple sources
+  const API_URL = `${BASE_URL}/api/v1`;
+
   const getSlotDisplay = (booking) => {
-    // Priority 1: slotSnapshot (permanent storage from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
       return {
         title: booking.slotSnapshot.title,
@@ -53,7 +54,6 @@ const OwnerDashboard = () => {
       };
     }
     
-    // Priority 2: slotId populated (if not deleted)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return {
         title: booking.slotId.title,
@@ -67,9 +67,7 @@ const OwnerDashboard = () => {
       };
     }
     
-    // Priority 3: slotId is a string ID (not populated) - use it or fallback
     if (booking.slotId && typeof booking.slotId === 'string') {
-      // Try to find the slot from the slots list
       const foundSlot = slots.find(s => s._id === booking.slotId);
       if (foundSlot) {
         return {
@@ -85,7 +83,6 @@ const OwnerDashboard = () => {
       }
     }
     
-    // Priority 4: Fallback - Show meaningful message
     return {
       title: '📍 Location Information Not Available',
       location: {
@@ -140,22 +137,19 @@ const OwnerDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  // ✅ FIXED: Wrapped fetchData in useCallback
+  const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       
       const [slotsRes, bookingsRes, earningsRes] = await Promise.all([
-        axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/owner/my-slots', {
+        axios.get(`${API_URL}/owner/my-slots`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/owner/bookings', {
+        axios.get(`${API_URL}/owner/bookings`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/owner/earnings', {
+        axios.get(`${API_URL}/owner/earnings`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -180,7 +174,12 @@ const OwnerDashboard = () => {
       toast.error('Failed to load dashboard data');
     }
     setLoading(false);
-  };
+  }, [API_URL]);
+
+  // ✅ FIXED: Added fetchData to dependency array
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAddSlot = async (e) => {
     e.preventDefault();
@@ -197,7 +196,7 @@ const OwnerDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('https://smart-parking-backend-tefg.onrender.com/api/v1/owner/slots', newSlot, {
+      const response = await axios.post(`${API_URL}/owner/slots`, newSlot, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -231,7 +230,7 @@ const OwnerDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://smart-parking-backend-tefg.onrender.com/api/v1/owner/slots/${slotToDelete._id}`, {
+      await axios.delete(`${API_URL}/owner/slots/${slotToDelete._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Parking slot deleted successfully');
@@ -533,7 +532,7 @@ const OwnerDashboard = () => {
           )}
         </div>
 
-        {/* Recent Bookings - ✅ FIXED with better fallback */}
+        {/* Recent Bookings */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Bookings</h2>
           

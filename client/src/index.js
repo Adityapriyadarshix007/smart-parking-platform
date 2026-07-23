@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/globals.css';
+import './force-rebuild';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -9,4 +10,3 @@ root.render(
     <App />
   </React.StrictMode>
 );
-import './force-rebuild';

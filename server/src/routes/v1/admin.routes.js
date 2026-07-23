@@ -20,26 +20,26 @@ const {
 router.use(protect);
 router.use(authorize('admin'));
 
-// User management
+// Dashboard stats
+router.get('/stats', getDashboardStats);
+
+// Users management
 router.get('/users', getAllUsers);
 router.delete('/users/:id', deleteUser);
 router.put('/users/:userId/role', updateUserRole);
 
-// Dashboard stats
-router.get('/stats', getDashboardStats);
-
-// Parking management
+// Parking management 
 router.get('/parking/all', getAllParkingSlots);
 router.put('/parking/:id', updateParkingSlot);
 router.delete('/parking/:id', deleteParkingSlot);
 router.put('/parking/:id/toggle-status', toggleParkingSlotStatus);
 
-// Listing management
-router.get('/pending-listings', getPendingListings);
-router.put('/listings/:id/verify', verifyListing);
-
-// Booking management - Admin
+// Bookings management
 router.get('/bookings', getAllBookings);
 router.put('/bookings/:id/status', updateBookingStatus);
+
+// Listings management
+router.get('/pending-listings', getPendingListings);
+router.put('/listings/:id/verify', verifyListing);
 
 module.exports = router;

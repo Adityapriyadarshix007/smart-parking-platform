@@ -1,8 +1,8 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
-import api from '../services/api';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/authService';
 
-const AuthContext = createContext();
+// Export both named and default
+export const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -15,95 +15,98 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-
-  const loadUser = useCallback(async () => {
-    try {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const response = await authService.getMe();
-      setUser(response.user);
-    } catch (error) {
-      console.error('Load user error:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
 
   useEffect(() => {
+    const loadUser = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await authService.getMe();
+          if (response.success && response.data) {
+            setUser(response.data);
+          } else {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.error('Error loading user:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+        }
+      }
+      setLoading(false);
+    };
+
     loadUser();
-  }, [loadUser]);
+  }, []);
 
   const login = async (email, password) => {
     try {
       const response = await authService.login(email, password);
-      const { token, user } = response;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setToken(token);
-      setUser(user);
-      return { success: true };
+      if (response.success) {
+        setUser(response.data?.user || null);
+        return { success: true, user: response.data?.user };
+      }
+      return { success: false, error: response.message || 'Login failed' };
     } catch (error) {
-      return { success: false, message: error.response?.data?.message || 'Login failed' };
+      return { success: false, error: 'An error occurred during login' };
     }
   };
 
-  const googleLogin = async (userData, authToken) => {
+  // ✅ ADD THIS: Google Login function
+  const googleLogin = async (userData, token) => {
     try {
-      localStorage.setItem('token', authToken);
+      // Store token and user data
+      localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
-      setToken(authToken);
+      
+      // Set user state
       setUser(userData);
-      return { success: true };
+      
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Google login error:', error);
-      return { success: false, message: error.message || 'Google login failed' };
+      return { success: false, error: 'Failed to login with Google' };
     }
   };
 
   const register = async (userData) => {
     try {
       const response = await authService.register(userData);
-      const { token, user } = response;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setToken(token);
-      setUser(user);
-      return { success: true };
+      if (response.success) {
+        setUser(response.data?.user || null);
+        return { success: true, user: response.data?.user };
+      }
+      return { success: false, error: response.message || 'Registration failed' };
     } catch (error) {
-      return { success: false, message: error.response?.data?.message || 'Registration failed' };
+      return { success: false, error: 'An error occurred during registration' };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
   };
 
+  const value = {
+    user,
+    setUser,
+    loading,
+    login,
+    googleLogin, // ✅ ADD THIS
+    register,
+    logout,
+    isAuthenticated: !!user && !!localStorage.getItem('token'),
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      googleLogin,
-      register, 
-      logout, 
-      loading,
-      isAuthenticated: !!user 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export { AuthContext };
+// Default export for backward compatibility
+export default AuthContext;

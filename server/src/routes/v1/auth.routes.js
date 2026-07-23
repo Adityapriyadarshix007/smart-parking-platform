@@ -5,6 +5,8 @@ const {
   login, 
   getMe, 
   googleVerify,
+  googleVerifySimple,
+  googleVerifyManual,
   forgotPassword,
   resetPassword,
   updateProfile 
@@ -31,7 +33,13 @@ router.get('/health/ping', (req, res) => {
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+
+// Google OAuth routes
 router.post('/google/verify', googleVerify);
+router.post('/google/verify-simple', googleVerifySimple);
+router.post('/google/verify-manual', googleVerifyManual);
+
+// Password routes
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 

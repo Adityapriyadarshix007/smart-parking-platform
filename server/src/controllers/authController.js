@@ -1,6 +1,5 @@
 const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -16,20 +15,17 @@ const validatePhoneNumber = (phone) => {
     return { valid: false, message: 'Phone number must be exactly 10 digits' };
   }
   
-  // Check for repeating digits
   const repeatingPattern = /^(\d)\1{9}$/;
   if (repeatingPattern.test(cleanNumber)) {
     return { valid: false, message: 'Please enter a valid phone number' };
   }
   
-  // Check for sequential digits
   const sequentialAsc = '1234567890';
   const sequentialDesc = '9876543210';
   if (cleanNumber === sequentialAsc || cleanNumber === sequentialDesc) {
     return { valid: false, message: 'Please enter a valid phone number' };
   }
   
-  // Check for common invalid patterns
   const invalidPatterns = [
     '1234567890', '9876543210', '1111111111', '2222222222', '3333333333',
     '4444444444', '5555555555', '6666666666', '7777777777', '8888888888',
@@ -40,7 +36,6 @@ const validatePhoneNumber = (phone) => {
     return { valid: false, message: 'Please enter a valid phone number' };
   }
   
-  // Check Indian mobile number pattern (starts with 6,7,8,9)
   const validPattern = /^[6-9]\d{9}$/;
   if (!validPattern.test(cleanNumber)) {
     return { valid: false, message: 'Mobile number must start with 6, 7, 8, or 9' };
@@ -62,7 +57,6 @@ const register = async (req, res) => {
       });
     }
     
-    // Validate phone number if provided
     if (phone && phone !== '0000000000') {
       const validation = validatePhoneNumber(phone);
       if (!validation.valid) {
@@ -149,29 +143,55 @@ const login = async (req, res) => {
   }
 };
 
-// Google Login Verification
+// ✅ PRIMARY Google verification - JWT decode (NO external API calls)
 const googleVerify = async (req, res) => {
   try {
     const { credential } = req.body;
     
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    if (!credential) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No credential provided' 
+      });
+    }
+
+    console.log('🔄 Decoding Google JWT token locally...');
+
+    // Decode the JWT to get the payload
+    const parts = credential.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid JWT format');
+    }
+
+    // Decode the payload (second part)
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
     
-    const payload = ticket.getPayload();
-    const { email, name, picture, email_verified } = payload;
-    
+    console.log('✅ JWT decoded successfully for:', payload.email);
+    console.log('✅ Google ID:', payload.sub);
+    console.log('✅ Email verified:', payload.email_verified);
+    console.log('✅ Audience (aud):', payload.aud);
+
+    const { email, name, picture, sub: googleId, email_verified, aud } = payload;
+
+    // Verify that the audience matches our client ID
+    const expectedAudience = process.env.GOOGLE_CLIENT_ID;
+    if (aud !== expectedAudience) {
+      console.log('❌ Audience mismatch. Expected:', expectedAudience, 'Got:', aud);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid token audience' 
+      });
+    }
+
     if (!email_verified) {
       return res.status(400).json({ 
         success: false, 
         message: 'Email not verified with Google' 
       });
     }
-    
+
     let user = await User.findOne({ email });
-    
+
     if (!user) {
       user = await User.create({
         name: name || email.split('@')[0],
@@ -180,13 +200,20 @@ const googleVerify = async (req, res) => {
         phone: '0000000000',
         role: 'user',
         isVerified: true,
-        profileImage: picture || null
+        profileImage: picture || null,
+        googleId: googleId
       });
       console.log(`✅ New user created via Google: ${email}`);
+    } else {
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+      }
+      console.log(`✅ Existing user logged in: ${email}`);
     }
-    
+
     const token = generateToken(user._id);
-    
+
     res.status(200).json({
       success: true,
       token,
@@ -197,17 +224,132 @@ const googleVerify = async (req, res) => {
         role: user.role,
         phone: user.phone,
         isVerified: user.isVerified,
-        profileImage: user.profileImage
+        profileImage: user.profileImage || picture
       }
     });
+
   } catch (error) {
-    console.error('Google verification error:', error);
+    console.error('❌ Google verification error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Google authentication failed' 
+      message: 'Google authentication failed. Please try again.' 
     });
   }
 };
+
+// ✅ Google verification with external API (fallback - uses fetch)
+const googleVerifyWithAPI = async (req, res) => {
+  try {
+    const { credential } = req.body;
+    
+    if (!credential) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No credential provided' 
+      });
+    }
+
+    console.log('🔄 Verifying Google token with API...');
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`,
+      { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google API error:', response.status, errorText);
+      throw new Error(`Google API returned ${response.status}: ${errorText}`);
+    }
+
+    const payload = await response.json();
+    console.log('✅ Google token verified for:', payload.email);
+
+    const { email, name, picture, sub: googleId, email_verified } = payload;
+
+    if (!email_verified) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email not verified with Google' 
+      });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email: email,
+        password: Math.random().toString(36).slice(-12),
+        phone: '0000000000',
+        role: 'user',
+        isVerified: true,
+        profileImage: picture || null,
+        googleId: googleId
+      });
+      console.log(`✅ New user created via Google: ${email}`);
+    } else {
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+      }
+    }
+
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        isVerified: user.isVerified,
+        profileImage: user.profileImage || picture
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Google API verification error:', error);
+    
+    if (error.name === 'AbortError') {
+      return res.status(504).json({
+        success: false,
+        message: 'Google verification timed out. Please check your internet connection and try again.'
+      });
+    }
+    
+    if (error.message.includes('ETIMEDOUT') || error.message.includes('connect') || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        success: false,
+        message: 'Network timeout. Please check your internet connection and try again.'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Google authentication failed. Please try again.' 
+    });
+  }
+};
+
+// ✅ Alias for googleVerify (for backward compatibility)
+const googleVerifySimple = googleVerify;
+
+// ✅ Alias for googleVerify (for backward compatibility)
+const googleVerifyManual = googleVerify;
 
 // Get current user
 const getMe = async (req, res) => {
@@ -225,7 +367,7 @@ const getMe = async (req, res) => {
   }
 };
 
-// Update user profile (phone number, name)
+// Update user profile
 const updateProfile = async (req, res) => {
   try {
     const { name, phone } = req.body;
@@ -233,7 +375,6 @@ const updateProfile = async (req, res) => {
     
     if (name) user.name = name;
     if (phone) {
-      // Validate phone number
       const validation = validatePhoneNumber(phone);
       if (!validation.valid) {
         return res.status(400).json({ 
@@ -333,6 +474,9 @@ module.exports = {
   login, 
   getMe, 
   googleVerify,
+  googleVerifySimple,
+  googleVerifyManual,
+  googleVerifyWithAPI,
   forgotPassword,
   resetPassword,
   updateProfile

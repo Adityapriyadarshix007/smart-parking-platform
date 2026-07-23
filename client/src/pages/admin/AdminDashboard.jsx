@@ -1,361 +1,261 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  FaChartLine, FaUsers, FaParking, FaCalendarCheck, 
+  FaMoneyBillWave, FaArrowRight, FaUserCog, FaEnvelope,
+  FaCheckCircle, FaClock, FaTimesCircle
+} from 'react-icons/fa';
+import { adminApiService } from '../../services/adminApiService';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalUsers: 0,
-    totalOwners: 0,
     totalAdmins: 0,
+    totalOwners: 0,
     totalSlots: 0,
     totalBookings: 0,
     totalEarnings: 0,
-    pendingListings: 0,
-    unreadMessages: 0,
-    confirmedBookings: 0,
-    cancelledBookings: 0,
-    pendingBookings: 0
+    confirmed: 0,
+    pending: 0,
+    cancelled: 0
   });
-  const [recentBookings, setRecentBookings] = useState([]);
-  const [recentUsers, setRecentUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingUser, setEditingUser] = useState(null);
-  const [selectedRole, setSelectedRole] = useState('');
-  const [updatingRole, setUpdatingRole] = useState(false);
+  const [error, setError] = useState(null);
+  const toastShownRef = useRef(false);
+  const dataFetchedRef = useRef(false);
 
   useEffect(() => {
-    fetchDashboardData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (dataFetchedRef.current) return;
+    dataFetchedRef.current = true;
 
-  const fetchDashboardData = async () => {
-    try {
+    const fetchDashboardData = async () => {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/admin/stats', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const data = response.data.data;
-      
-      // Get actual counts from backend (no hardcoded fallback)
-      const confirmed = data.confirmedBookings || 0;
-      const cancelled = data.cancelledBookings || 0;
-      const pending = data.pendingBookings || 0;
-      
-      setStats({
-        totalUsers: data.totalUsers || 0,
-        totalOwners: data.totalOwners || 0,
-        totalAdmins: data.totalAdmins || 0,
-        totalSlots: data.totalSlots || 0,
-        totalBookings: data.totalBookings || 0,
-        totalEarnings: data.totalEarnings || 0,
-        pendingListings: data.pendingListings || 0,
-        unreadMessages: data.unreadMessages || 0,
-        confirmedBookings: confirmed,
-        cancelledBookings: cancelled,
-        pendingBookings: pending
-      });
-      setRecentBookings(data.recentBookings || []);
-      setRecentUsers(data.recentUsers || []);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCardClick = (status) => {
-    window.location.href = `/admin-bookings-filtered.html?status=${status}`;
-  };
-
-  const handleRoleChange = async (userId, newRole) => {
-    setUpdatingRole(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.put(
-        `https://smart-parking-backend-tefg.onrender.com/api/v1/admin/users/${userId}/role`,
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        toast.success(`User role updated to ${newRole} successfully`);
-        fetchDashboardData();
-        setEditingUser(null);
-      } else {
-        toast.error(response.data.message || 'Failed to update role');
+      if (!token) {
+        navigate('/login');
+        return;
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update user role');
-    } finally {
-      setUpdatingRole(false);
-    }
-  };
 
-  const openRoleEditor = (user) => {
-    setEditingUser(user);
-    setSelectedRole(user.role);
-  };
+      // ✅ Check if user is admin
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          console.log('👤 User role:', user.role);
+          if (user.role !== 'admin') {
+            setError('You do not have admin access. Please contact the administrator.');
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing user:', e);
+        }
+      }
 
-  const closeRoleEditor = () => {
-    setEditingUser(null);
-    setSelectedRole('');
+      try {
+        console.log('🔄 Fetching admin dashboard data...');
+        
+        const [statsResponse, bookingsResponse] = await Promise.all([
+          adminApiService.getStats(),
+          adminApiService.getBookings()
+        ]);
+
+        console.log('📊 Stats response:', statsResponse);
+        console.log('📊 Bookings response:', bookingsResponse);
+
+        if (statsResponse && statsResponse.success) {
+          const statsData = statsResponse.data || {};
+          setStats({
+            totalUsers: statsData.totalUsers || 0,
+            totalAdmins: statsData.totalAdmins || 0,
+            totalOwners: statsData.totalOwners || 0,
+            totalSlots: statsData.totalSlots || 0,
+            totalBookings: statsData.totalBookings || 0,
+            totalEarnings: statsData.totalEarnings || 0,
+            confirmed: statsData.confirmedBookings || 0,
+            pending: statsData.pendingBookings || 0,
+            cancelled: statsData.cancelledBookings || 0
+          });
+        }
+
+        if (bookingsResponse && bookingsResponse.success) {
+          const bookings = bookingsResponse.data || [];
+          if (stats.confirmed === 0 && stats.pending === 0 && stats.cancelled === 0 && bookings.length > 0) {
+            setStats(prev => ({
+              ...prev,
+              confirmed: bookings.filter(b => b.status === 'confirmed').length,
+              pending: bookings.filter(b => b.status === 'pending').length,
+              cancelled: bookings.filter(b => b.status === 'cancelled').length
+            }));
+          }
+        }
+
+        if (!toastShownRef.current) {
+          toast.success('Dashboard loaded successfully');
+          toastShownRef.current = true;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching dashboard data:', error);
+        
+        // ✅ Better error handling - show specific error message
+        if (error.userMessage) {
+          setError(error.userMessage);
+        } else if (error.response?.status === 403) {
+          setError('You do not have admin access. Please contact the administrator.');
+        } else if (error.response?.status === 401) {
+          setError('Your session has expired. Please login again.');
+          setTimeout(() => navigate('/login'), 2000);
+        } else if (error.response?.status === 500) {
+          setError('Server error. Please try again later.');
+        } else if (error.message?.includes('Network Error') || error.code === 'ECONNABORTED') {
+          setError('Cannot connect to server. Please check your network connection.');
+        } else {
+          setError(error.response?.data?.message || 'Failed to load dashboard data');
+        }
+        
+        if (!toastShownRef.current) {
+          toast.error(error.userMessage || 'Failed to load dashboard');
+          toastShownRef.current = true;
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [navigate]);
+
+  // ✅ Retry function
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    dataFetchedRef.current = false;
+    toastShownRef.current = false;
+    window.location.reload();
   };
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md bg-white p-8 rounded-2xl shadow-lg">
+          <div className="text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-500 mb-6">Try refreshing the page or logging in again.</p>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={handleRetry}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
+            >
+              Retry
+            </button>
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-6 md:py-8">
-      <div className="container mx-auto px-3 md:px-4">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl md:rounded-2xl text-white p-4 md:p-6 mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-blue-100 text-sm md:text-base mt-1">Complete analytics and control over the platform</p>
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-8 mb-8 shadow-xl">
+        <h1 className="text-3xl font-bold text-white flex items-center gap-3"><FaChartLine /> Admin Dashboard</h1>
+        <p className="text-blue-100 mt-1">Complete analytics and control over the platform</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div onClick={() => navigate('/admin/users')} className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-center mb-3"><FaUsers className="text-4xl text-blue-500" /></div>
+          <div className="text-3xl font-extrabold text-gray-800">{stats.totalUsers}</div>
+          <div className="text-gray-600 font-medium mt-1">Total Users</div>
+          <div className="text-xs text-gray-400 mt-1">{stats.totalAdmins} Admins, {stats.totalOwners} Owners</div>
         </div>
-
-        {/* Main Stats Cards - Responsive grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
-          {/* Total Users - Redirects to /admin/users */}
-          <Link to="/admin/users">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
-            >
-              <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
-              <div className="text-xs text-gray-500">Total Users</div>
-              <div className="text-xs text-gray-400 hidden sm:block">{stats.totalAdmins} Admins, {stats.totalOwners} Owners</div>
-            </motion.div>
-          </Link>
-          
-          {/* Parking Slots - Redirects to HTML page */}
-          <a href="/admin-parking-slots.html">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
-            >
-              <div className="text-xl md:text-2xl font-bold text-green-600">{stats.totalSlots}</div>
-              <div className="text-xs text-gray-500">Parking Slots</div>
-              <div className="text-xs text-gray-400 hidden sm:block">Across India</div>
-            </motion.div>
-          </a>
-          
-          {/* Total Bookings - Redirects to HTML page */}
-          <a href="/admin-all-bookings.html">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
-            >
-              <div className="text-xl md:text-2xl font-bold text-purple-600">{stats.totalBookings}</div>
-              <div className="text-xs text-gray-500">Total Bookings</div>
-              <div className="text-xs text-gray-400 hidden sm:block">All time</div>
-            </motion.div>
-          </a>
-          
-          {/* Total Revenue - Redirects to HTML page */}
-          <a href="/admin-revenue.html">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition"
-            >
-              <div className="text-xl md:text-2xl font-bold text-orange-600">₹{stats.totalEarnings.toLocaleString()}</div>
-              <div className="text-xs text-gray-500">Total Revenue</div>
-              <div className="text-xs text-gray-400 hidden sm:block">Platform earnings</div>
-            </motion.div>
-          </a>
-          
-          <Link to="/admin/listings">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition relative"
-            >
-              <div className="text-xl md:text-2xl font-bold text-yellow-600">{stats.pendingListings}</div>
-              <div className="text-xs text-gray-500">Pending Listings</div>
-              {stats.pendingListings > 0 && (
-                <div className="mt-1 inline-block px-1.5 py-0.5 bg-yellow-500 text-white text-xs rounded-full">
-                  Awaiting
-                </div>
-              )}
-            </motion.div>
-          </Link>
-          
-          <Link to="/admin/messages">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-3 md:p-4 text-center cursor-pointer hover:shadow-lg transition relative"
-            >
-              <div className="text-xl md:text-2xl font-bold text-red-600">{stats.unreadMessages}</div>
-              <div className="text-xs text-gray-500">Unread Msgs</div>
-              {stats.unreadMessages > 0 && (
-                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
-              )}
-            </motion.div>
-          </Link>
+        <div onClick={() => navigate('/admin/slots')} className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-center mb-3"><FaParking className="text-4xl text-purple-500" /></div>
+          <div className="text-3xl font-extrabold text-gray-800">{stats.totalSlots}</div>
+          <div className="text-gray-600 font-medium mt-1">Parking Slots</div>
+          <div className="text-xs text-gray-400 mt-1">Across India</div>
         </div>
-
-        {/* Booking Status Breakdown - CLICKABLE CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mb-6 md:mb-8">
-          <div 
-            onClick={() => handleCardClick('confirmed')}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-green-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
-          >
-            <div className="flex items-center justify-center mb-2">
-              <div className="bg-green-500 p-2 rounded-full">
-                <svg className="w-4 h-4 md:w-5 md:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold text-green-600">{stats.confirmedBookings}</div>
-            <div className="text-sm font-semibold text-gray-700">Confirmed Bookings</div>
-            <div className="text-xs text-gray-500">Successfully completed & paid</div>
-            <div className="mt-2 text-xs text-green-600">Click to view all →</div>
-          </div>
-
-          <div 
-            onClick={() => handleCardClick('pending')}
-            className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-yellow-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
-          >
-            <div className="flex items-center justify-center mb-2">
-              <div className="bg-yellow-500 p-2 rounded-full">
-                <svg className="w-4 h-4 md:w-5 md:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold text-yellow-600">{stats.pendingBookings}</div>
-            <div className="text-sm font-semibold text-gray-700">Pending Bookings</div>
-            <div className="text-xs text-gray-500">Awaiting confirmation</div>
-            <div className="mt-2 text-xs text-yellow-600">Click to view all →</div>
-          </div>
-
-          <div 
-            onClick={() => handleCardClick('cancelled')}
-            className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-red-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
-          >
-            <div className="flex items-center justify-center mb-2">
-              <div className="bg-red-500 p-2 rounded-full">
-                <svg className="w-4 h-4 md:w-5 md:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-2xl md:text-3xl font-bold text-red-600">{stats.cancelledBookings}</div>
-            <div className="text-sm font-semibold text-gray-700">Cancelled Bookings</div>
-            <div className="text-xs text-gray-500">Refunded / Rejected</div>
-            <div className="mt-2 text-xs text-red-600">Click to view all →</div>
-          </div>
+        <div onClick={() => navigate('/admin/all-bookings')} className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-center mb-3"><FaCalendarCheck className="text-4xl text-emerald-500" /></div>
+          <div className="text-3xl font-extrabold text-gray-800">{stats.totalBookings}</div>
+          <div className="text-gray-600 font-medium mt-1">Total Bookings</div>
+          <div className="text-xs text-gray-400 mt-1">All time</div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 md:gap-6 mb-6 md:mb-8">
-          <Link to="/admin/users">
-            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
-              <div className="text-3xl md:text-4xl mb-2">👥</div>
-              <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Users</div>
-            </div>
-          </Link>
-          <Link to="/admin/messages">
-            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
-              <div className="text-3xl md:text-4xl mb-2">💬</div>
-              <div className="font-semibold text-gray-800 text-sm md:text-base">Customer Messages</div>
-            </div>
-          </Link>
-          <Link to="/admin/listings">
-            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
-              <div className="text-3xl md:text-4xl mb-2">🅿️</div>
-              <div className="font-semibold text-gray-800 text-sm md:text-base">Verify Listings</div>
-            </div>
-          </Link>
-          <a href="/admin-parking-slots.html">
-            <div className="bg-white rounded-lg md:rounded-xl shadow-sm md:shadow-md p-4 md:p-6 text-center hover:shadow-lg transition">
-              <div className="text-3xl md:text-4xl mb-2">📍</div>
-              <div className="font-semibold text-gray-800 text-sm md:text-base">Manage Parking</div>
-            </div>
-          </a>
+        <div onClick={() => navigate('/admin/revenue')} className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-center mb-3"><FaMoneyBillWave className="text-4xl text-amber-500" /></div>
+          <div className="text-3xl font-extrabold text-gray-800">₹{(stats.totalEarnings || 0).toLocaleString()}</div>
+          <div className="text-gray-600 font-medium mt-1">Total Revenue</div>
+          <div className="text-xs text-gray-400 mt-1">Platform earnings</div>
         </div>
+      </div>
 
-        {/* Recent Activity Section */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Recent Users */}
-          <div className="bg-white rounded-xl shadow-md p-5 md:p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Users</h2>
-              <Link to="/admin/users" className="text-blue-600 hover:text-blue-700 text-sm">Manage All →</Link>
-            </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {recentUsers.slice(0, 5).map((user) => (
-                <div key={user._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-800">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {editingUser && editingUser._id === user._id ? (
-                      <div className="flex items-center gap-2">
-                        <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="px-2 py-1 text-xs border rounded-lg">
-                          <option value="user">User</option>
-                          <option value="owner">Owner</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                        <button onClick={() => handleRoleChange(user._id, selectedRole)} className="px-2 py-1 text-xs bg-green-500 text-white rounded">Save</button>
-                        <button onClick={closeRoleEditor} className="px-2 py-1 text-xs bg-gray-500 text-white rounded">Cancel</button>
-                      </div>
-                    ) : (
-                      <>
-                        <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'owner' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{user.role}</span>
-                        <button onClick={() => openRoleEditor(user)} className="text-blue-600 text-xs">✏️</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div onClick={() => navigate('/admin/bookings/filtered?status=confirmed')} className="bg-emerald-50 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Confirmed Bookings</h3>
+            <FaCheckCircle className="text-emerald-500 text-2xl" />
           </div>
+          <div className="text-3xl font-extrabold text-emerald-600">{stats.confirmed}</div>
+          <div className="text-sm text-gray-500 mt-2">Successfully completed & paid</div>
+          <div className="text-sm text-blue-600 font-semibold mt-4 flex items-center gap-2">Click to view all <FaArrowRight className="text-xs" /></div>
+        </div>
+        <div onClick={() => navigate('/admin/bookings/filtered?status=pending')} className="bg-amber-50 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Pending Bookings</h3>
+            <FaClock className="text-amber-500 text-2xl" />
+          </div>
+          <div className="text-3xl font-extrabold text-amber-600">{stats.pending}</div>
+          <div className="text-sm text-gray-500 mt-2">Awaiting confirmation</div>
+          <div className="text-sm text-blue-600 font-semibold mt-4 flex items-center gap-2">Click to view all <FaArrowRight className="text-xs" /></div>
+        </div>
+        <div onClick={() => navigate('/admin/bookings/filtered?status=cancelled')} className="bg-red-50 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 cursor-pointer hover:-translate-y-1">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Cancelled Bookings</h3>
+            <FaTimesCircle className="text-red-500 text-2xl" />
+          </div>
+          <div className="text-3xl font-extrabold text-red-600">{stats.cancelled}</div>
+          <div className="text-sm text-gray-500 mt-2">Refunded / Rejected</div>
+          <div className="text-sm text-blue-600 font-semibold mt-4 flex items-center gap-2">Click to view all <FaArrowRight className="text-xs" /></div>
+        </div>
+      </div>
 
-          {/* Recent Bookings */}
-          <div className="bg-white rounded-xl shadow-md p-5 md:p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Bookings</h2>
-              <a 
-                href="/admin-all-bookings.html" 
-                className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
-              >
-                Manage All →
-              </a>
-            </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {recentBookings.slice(0, 5).map((booking) => (
-                <div key={booking._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    {/* ✅ Use slotSnapshot if available */}
-                    <div className="font-medium text-gray-800">
-                      {booking.slotSnapshot?.title || booking.slotId?.title || 'Parking Slot'}
-                      {booking.slotSnapshot && !booking.slotId && (
-                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Archived</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500">{booking.userId?.name || 'Unknown'}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-green-600">₹{booking.totalPrice}</div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : booking.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{booking.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-800 mb-6">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button onClick={() => navigate('/admin/users')} className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 hover:border-blue-300">
+            <div className="bg-blue-500 text-white p-3 rounded-xl"><FaUserCog className="text-2xl" /></div>
+            <div className="text-left"><div className="font-semibold text-gray-800">Manage Users</div><div className="text-xs text-gray-500">View and manage all users</div></div>
+          </button>
+          <button onClick={() => navigate('/admin/messages')} className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 hover:border-blue-300">
+            <div className="bg-purple-500 text-white p-3 rounded-xl"><FaEnvelope className="text-2xl" /></div>
+            <div className="text-left"><div className="font-semibold text-gray-800">Manage Messages</div><div className="text-xs text-gray-500">View and reply to messages</div></div>
+          </button>
+          <button onClick={() => navigate('/admin/listings')} className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 hover:border-blue-300">
+            <div className="bg-emerald-500 text-white p-3 rounded-xl"><FaCheckCircle className="text-2xl" /></div>
+            <div className="text-left"><div className="font-semibold text-gray-800">Verify Listings</div><div className="text-xs text-gray-500">Verify parking listings</div></div>
+          </button>
+          <button onClick={() => navigate('/admin/monitor-bookings')} className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 hover:border-blue-300">
+            <div className="bg-amber-500 text-white p-3 rounded-xl"><FaCalendarCheck className="text-2xl" /></div>
+            <div className="text-left"><div className="font-semibold text-gray-800">Monitor Bookings</div><div className="text-xs text-gray-500">Real-time booking monitoring</div></div>
+          </button>
         </div>
       </div>
     </div>

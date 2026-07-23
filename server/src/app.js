@@ -14,72 +14,115 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io with CORS for port 5001
+// ============================================
+// ✅ CORS CONFIGURATION - FIXED
+// ============================================
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5001',
+  'http://localhost:5002',
+  'https://smart-parking-platform-nine.vercel.app',
+  'https://smart-parking-backend-tefg.onrender.com'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked for origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware BEFORE routes
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
+// ============================================
+// SOCKET.IO WITH CORS
+// ============================================
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
   }
 });
 
 // ============================================
-// RATE LIMITING CONFIGURATION
+// RATE LIMITING
 // ============================================
-
-// General rate limiter - 100 requests per 15 minutes
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { success: false, message: 'Too many requests from this IP, please try again later.' },
+  max: 200,
+  message: { success: false, message: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for health checks
     return req.path === '/health' || req.path === '/' || req.path === '/api/v1/health';
   }
 });
 
-// Strict rate limiter for booking and message endpoints - 30 requests per minute
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 60,
   message: { success: false, message: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false
 });
 
-// Admin rate limiter - 50 requests per 15 minutes
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 100,
   message: { success: false, message: 'Too many admin requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false
 });
 
-// Apply rate limiters
-app.use('/api/', generalLimiter);
-app.use('/api/v1/bookings', strictLimiter);
-app.use('/api/v1/messages', strictLimiter);
-app.use('/api/v1/admin', adminLimiter);
-
-// Middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true
+// ============================================
+// MIDDLEWARE
+// ============================================
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
 // Make io accessible to routes
 app.set('io', io);
 
-// MongoDB Connection
+// ============================================
+// MONGODB CONNECTION
+// ============================================
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart-parking';
+
+console.log('🔄 Connecting to MongoDB...');
+console.log('📝 Using URI:', MONGODB_URI.replace(/\/\/.*@/, '//****:****@'));
+
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -87,13 +130,40 @@ mongoose.connect(MONGODB_URI, {
   minPoolSize: 2,
   socketTimeoutMS: 45000,
   connectTimeoutMS: 10000,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000,
   heartbeatFrequencyMS: 10000,
   retryWrites: true,
-  retryReads: true
+  retryReads: true,
+  family: 4
 })
-.then(() => console.log('✅ MongoDB Connected Successfully'))
-.catch(err => console.error('❌ MongoDB Error:', err));
+.then(() => {
+  console.log('✅ MongoDB Connected Successfully');
+  console.log(`📊 Database: ${mongoose.connection.db.databaseName}`);
+  console.log(`🔗 Host: ${mongoose.connection.host}`);
+})
+.catch((err) => {
+  console.error('❌ MongoDB Connection Error:', err.message);
+  console.log('🔄 Retrying connection in 5 seconds...');
+  setTimeout(() => {
+    mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 30000,
+      heartbeatFrequencyMS: 10000,
+      retryWrites: true,
+      retryReads: true,
+      family: 4
+    }).then(() => {
+      console.log('✅ MongoDB Connected Successfully on retry');
+    }).catch(err => {
+      console.error('❌ MongoDB Connection Error on retry:', err.message);
+    });
+  }, 5000);
+});
 
 // Monitor MongoDB connection events
 mongoose.connection.on('error', (err) => {
@@ -101,27 +171,27 @@ mongoose.connection.on('error', (err) => {
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
+  console.log('🔴 MongoDB disconnected');
 });
 
 mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB reconnected');
+  console.log('🟢 MongoDB reconnected');
 });
 
 // ============================================
-// IMPORT ALL ROUTES FIRST
+// IMPORT ROUTES
 // ============================================
-const authRoutes = require('./src/routes/v1/auth.routes');
-const userRoutes = require('./src/routes/v1/user.routes');
-const parkingRoutes = require('./src/routes/v1/parking.routes');
-const bookingRoutes = require('./src/routes/v1/booking.routes');
-const ownerRoutes = require('./src/routes/v1/owner.routes');
-const adminRoutes = require('./src/routes/v1/admin.routes');
-const messageRoutes = require('./src/routes/v1/message.routes');
-const paymentRoutes = require('./src/routes/v1/payment.routes');
+const authRoutes = require('./routes/v1/auth.routes');
+const userRoutes = require('./routes/v1/user.routes');
+const parkingRoutes = require('./routes/v1/parking.routes');
+const bookingRoutes = require('./routes/v1/booking.routes');
+const ownerRoutes = require('./routes/v1/owner.routes');
+const adminRoutes = require('./routes/v1/admin.routes');
+const messageRoutes = require('./routes/v1/message.routes');
+const paymentRoutes = require('./routes/v1/payment.routes');
 
 // ============================================
-// REGISTER ALL ROUTES BEFORE 404 HANDLER
+// REGISTER ROUTES
 // ============================================
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
@@ -133,23 +203,31 @@ app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 
 // ============================================
-// HEALTH CHECK AND TEST ROUTES
+// HEALTH CHECK
 // ============================================
 app.get('/health', (req, res) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'Disconnected',
+    1: 'Connected',
+    2: 'Connecting',
+    3: 'Disconnecting'
+  };
+  
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date(),
     uptime: process.uptime(),
     memory: process.memoryUsage().rss / 1024 / 1024 + ' MB',
-    port: process.env.PORT || 5001
-  });
-});
-
-app.get('/api/v1/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    message: 'API is healthy',
-    timestamp: new Date().toISOString()
+    port: process.env.PORT || 5001,
+    mongodb: {
+      status: statusMap[mongoStatus] || 'Unknown',
+      readyState: mongoStatus
+    },
+    environment: process.env.NODE_ENV || 'development',
+    cors: {
+      allowedOrigins: allowedOrigins
+    }
   });
 });
 
@@ -157,12 +235,13 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Smart Parking API is Running!', 
     version: '1.0.0',
-    port: process.env.PORT || 5001
+    port: process.env.PORT || 5001,
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
 // ============================================
-// SOCKET.IO CONNECTION
+// SOCKET.IO
 // ============================================
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
@@ -185,18 +264,17 @@ io.on('connection', (socket) => {
 // ============================================
 // BOOKING EXPIRY JOB
 // ============================================
-const expireBookings = require('./src/jobs/expireBookings');
-
-// Initialize booking expiry job (runs every 30 minutes)
-expireBookings();
-
-console.log('✅ Booking expiry job initialized');
+try {
+  const expireBookings = require('./jobs/expireBookings');
+  expireBookings();
+  console.log('✅ Booking expiry job initialized');
+} catch (error) {
+  console.log('⚠️ Booking expiry job not found');
+}
 
 // ============================================
-// GLOBAL ERROR HANDLERS
+// ERROR HANDLERS
 // ============================================
-
-// Catch 404 for undefined routes - MUST BE BEFORE ERROR HANDLER
 app.use((req, res) => {
   res.status(404).json({ 
     success: false,
@@ -204,7 +282,6 @@ app.use((req, res) => {
   });
 });
 
-// Global error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   res.status(err.status || 500).json({ 
@@ -215,16 +292,14 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
-// UNCAUGHT EXCEPTION HANDLERS
+// PROCESS HANDLERS
 // ============================================
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  // Don't exit, just log to keep server running
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit, just log to keep server running
+  console.error('❌ Unhandled Rejection:', reason);
 });
 
 // ============================================
@@ -236,6 +311,8 @@ server.listen(PORT, () => {
   console.log(`📡 API URL: http://localhost:${PORT}/api/v1`);
   console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
   console.log(`❤️ Health check: http://localhost:${PORT}/health`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✅ CORS enabled for: ${allowedOrigins.join(', ')}`);
 });
 
 module.exports = { app, server };

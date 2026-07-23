@@ -1,223 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaArrowLeft, FaSyncAlt, FaEnvelope, FaReply, FaCheck } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
 
 const ManageMessages = () => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [replyText, setReplyText] = useState('');
-  const [replyingTo, setReplyingTo] = useState(null);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [toastShown, setToastShown] = useState(false);
 
+  const API_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://smart-parking-backend-tefg.onrender.com/api/v1'
+    : 'http://localhost:5001/api/v1';
+
+  // ✅ Wrapped fetchMessages in useCallback
+  const fetchMessages = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/messages/admin/messages`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+
+      if (data && data.success) {
+        setMessages(data.data || []);
+        if (!toastShown) {
+          toast.success(`Loaded ${data.data?.length || 0} messages`);
+          setToastShown(true);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error:', error);
+      if (!toastShown) {
+        toast.error('Failed to load messages');
+        setToastShown(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, API_URL, toastShown]);
+
+  // ✅ Added fetchMessages to dependency array
   useEffect(() => {
     fetchMessages();
-  }, []);
+  }, [fetchMessages]);
 
-  const fetchMessages = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/messages/admin/messages', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(response.data.data);
-    } catch (error) {
-      toast.error('Failed to fetch messages');
-    }
-    setLoading(false);
-  };
-
-  const handleViewMessage = async (message) => {
-    setSelectedMessage(message);
-    try {
-      const token = localStorage.getItem('token');
-      await axios.get(`https://smart-parking-backend-tefg.onrender.com/api/v1/messages/admin/messages/${message._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error('Error marking as read:', error);
-    }
-  };
-
-  const handleReply = async (messageId) => {
+  const handleReply = async () => {
     if (!replyText.trim()) {
       toast.error('Please enter a reply');
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
-      await axios.put(
-        `https://smart-parking-backend-tefg.onrender.com/api/v1/messages/admin/messages/${messageId}/reply`,
-        { reply: replyText },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Reply sent successfully!');
-      setReplyingTo(null);
-      setReplyText('');
-      fetchMessages();
-      if (selectedMessage?._id === messageId) {
+      const response = await fetch(`${API_URL}/messages/reply/${selectedMessage._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ reply: replyText })
+      });
+      const data = await response.json();
+
+      if (data && data.success) {
+        toast.success('Reply sent successfully!');
+        setShowReplyModal(false);
+        setReplyText('');
         setSelectedMessage(null);
+        fetchMessages();
+      } else {
+        toast.error('Failed to send reply');
       }
     } catch (error) {
+      console.error('Error sending reply:', error);
       toast.error('Failed to send reply');
     }
   };
 
-  const handleDelete = async (messageId) => {
-    if (window.confirm('Delete this message?')) {
-      try {
-        const token = localStorage.getItem('token');
-        await axios.delete(`https://smart-parking-backend-tefg.onrender.com/api/v1/messages/admin/messages/${messageId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        toast.success('Message deleted');
-        fetchMessages();
-        if (selectedMessage?._id === messageId) {
-          setSelectedMessage(null);
-        }
-      } catch (error) {
-        toast.error('Failed to delete message');
-      }
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const colors = {
-      unread: 'bg-red-100 text-red-700',
-      read: 'bg-yellow-100 text-yellow-700',
-      replied: 'bg-green-100 text-green-700'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-700';
-  };
-
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="spinner"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-600">Loading messages...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-200px)] bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">Customer Messages</h1>
-          
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Messages List */}
-            <div className="lg:col-span-1 border-r pr-4">
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {messages.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No messages yet</p>
-                ) : (
-                  messages.map((message) => (
-                    <motion.div
-                      key={message._id}
-                      whileHover={{ scale: 1.02 }}
-                      onClick={() => handleViewMessage(message)}
-                      className={`p-4 rounded-lg cursor-pointer transition ${
-                        selectedMessage?._id === message._id
-                          ? 'bg-blue-50 border-l-4 border-blue-600'
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/admin-dashboard')} 
+        className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100"
+      >
+        <FaArrowLeft className="text-sm" /> Back to Dashboard
+      </button>
+
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 mb-8 shadow-xl">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3"><FaEnvelope /> Manage Messages</h1>
+            <p className="text-blue-100 mt-1">View and reply to user messages</p>
+          </div>
+          <button onClick={fetchMessages} className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-6 py-2 rounded-full text-white font-semibold flex items-center gap-2 transition-all">
+            <FaSyncAlt /> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {messages.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📭</div>
+            <p className="text-gray-500">No messages found</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {messages.map((msg) => (
+              <div key={msg._id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-semibold text-gray-800">{msg.userId?.name || 'Unknown User'}</span>
+                      <span className="text-sm text-gray-500">{msg.userId?.email || ''}</span>
+                      {!msg.isRead && (
+                        <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">New</span>
+                      )}
+                      {msg.status === 'replied' && (
+                        <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Replied</span>
+                      )}
+                    </div>
+                    <p className="text-gray-700">{msg.message}</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(msg.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                    </p>
+                    {msg.reply && (
+                      <div className="mt-3 bg-gray-50 rounded-lg p-3 border-l-4 border-blue-500">
+                        <p className="text-sm text-gray-600"><span className="font-semibold">Reply:</span> {msg.reply}</p>
+                      </div>
+                    )}
+                  </div>
+                  {!msg.reply && (
+                    <button
+                      onClick={() => {
+                        setSelectedMessage(msg);
+                        setShowReplyModal(true);
+                      }}
+                      className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm flex items-center gap-2"
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-semibold text-gray-800">{message.name}</div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadge(message.status)}`}>
-                          {message.status}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600 truncate">{message.subject}</div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {new Date(message.createdAt).toLocaleDateString()}
-                      </div>
-                    </motion.div>
-                  ))
-                )}
+                      <FaReply /> Reply
+                    </button>
+                  )}
+                </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reply Modal */}
+      {showReplyModal && selectedMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Reply to Message</h3>
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600"><span className="font-semibold">From:</span> {selectedMessage.userId?.name}</p>
+              <p className="text-sm text-gray-600 mt-1"><span className="font-semibold">Message:</span> {selectedMessage.message}</p>
             </div>
-            
-            {/* Message Detail */}
-            <div className="lg:col-span-2">
-              {selectedMessage ? (
-                <div>
-                  <div className="mb-4 flex justify-between items-start">
-                    <h2 className="text-xl font-bold text-gray-800">Message Details</h2>
-                    <button
-                      onClick={() => handleDelete(selectedMessage._id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <div className="grid md:grid-cols-2 gap-4 mb-4">
-                      <div><div className="text-sm text-gray-500">From</div><div className="font-semibold">{selectedMessage.name}</div></div>
-                      <div><div className="text-sm text-gray-500">Email</div><div className="font-semibold">{selectedMessage.email}</div></div>
-                      <div><div className="text-sm text-gray-500">Subject</div><div className="font-semibold">{selectedMessage.subject}</div></div>
-                      <div><div className="text-sm text-gray-500">Received</div><div className="font-semibold">{new Date(selectedMessage.createdAt).toLocaleString()}</div></div>
-                    </div>
-                    <div><div className="text-sm text-gray-500 mb-1">Message</div><div className="bg-white rounded p-3 border">{selectedMessage.message}</div></div>
-                  </div>
-                  
-                  {selectedMessage.adminReply && (
-                    <div className="bg-green-50 rounded-lg p-4 mb-4 border-l-4 border-green-600">
-                      <div className="text-sm text-gray-500 mb-1">Admin Reply</div>
-                      <div className="text-gray-700">{selectedMessage.adminReply}</div>
-                      <div className="text-xs text-gray-400 mt-2">
-                        Replied on: {new Date(selectedMessage.repliedAt).toLocaleString()}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {replyingTo === selectedMessage._id ? (
-                    <div className="mt-4">
-                      <textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        rows="4"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Type your reply here..."
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => handleReply(selectedMessage._id)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        >
-                          Send Reply
-                        </button>
-                        <button
-                          onClick={() => {
-                            setReplyingTo(null);
-                            setReplyText('');
-                          }}
-                          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setReplyingTo(selectedMessage._id)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    >
-                      Reply to Message
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-12">
-                  Select a message to view details
-                </div>
-              )}
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              rows="4"
+              placeholder="Type your reply here..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-3 mt-4">
+              <button onClick={handleReply} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                <FaCheck /> Send Reply
+              </button>
+              <button onClick={() => { setShowReplyModal(false); setReplyText(''); setSelectedMessage(null); }} className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition">
+                Cancel
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

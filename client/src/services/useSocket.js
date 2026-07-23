@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import { SOCKET_URL } from '../config/apiConfig';
 
 export const useSocket = (url) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const socketUrl = url || process.env.REACT_APP_SOCKET_URL || 'https://smart-parking-backend-tefg.onrender.com';
+    const socketUrl = url || SOCKET_URL;
     socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
       withCredentials: true,

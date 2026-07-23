@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { BASE_URL } from '../../config/apiConfig';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 
@@ -13,13 +14,9 @@ const Dashboard = () => {
   });
   const [recentBookings, setRecentBookings] = useState([]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const API_URL = `${BASE_URL}/api/v1`;
 
-  // ✅ Helper: Get slot display from snapshot or slotId
   const getSlotDisplay = (booking) => {
-    // Priority 1: slotSnapshot (permanent storage from booking time)
     if (booking.slotSnapshot && booking.slotSnapshot.title) {
       return {
         title: booking.slotSnapshot.title,
@@ -29,7 +26,6 @@ const Dashboard = () => {
       };
     }
     
-    // Priority 2: slotId populated (if not deleted)
     if (booking.slotId && typeof booking.slotId === 'object' && booking.slotId.title) {
       return {
         title: booking.slotId.title,
@@ -39,7 +35,6 @@ const Dashboard = () => {
       };
     }
     
-    // Priority 3: Fallback - Show meaningful message
     return {
       title: '📍 Location Removed',
       location: {
@@ -52,10 +47,11 @@ const Dashboard = () => {
     };
   };
 
-  const fetchDashboardData = async () => {
+  // ✅ FIXED: Wrapped fetchDashboardData in useCallback
+  const fetchDashboardData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const bookingsResponse = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/bookings/my-bookings', {
+      const bookingsResponse = await axios.get(`${API_URL}/bookings/my-bookings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -73,7 +69,12 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     }
-  };
+  }, [API_URL]);
+
+  // ✅ FIXED: Added fetchDashboardData to dependency array
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -169,7 +170,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Bookings - ✅ FIXED with slot display */}
+        {/* Recent Bookings */}
         {recentBookings.length > 0 && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Bookings</h2>

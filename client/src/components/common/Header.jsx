@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import io from 'socket.io-client';
+import { BASE_URL } from '../../config/apiConfig';
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -12,32 +13,27 @@ const Header = () => {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [socket, setSocket] = useState(null);
   
-  // Debounce timer ref
   const fetchDebounceRef = useRef(null);
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+  const toastShownRef = useRef(false);
 
-  // HARDCODED URL - NO VARIABLES, NO DUPLICATE /api/v1
-  const HARDCODED_URL = 'https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages';
+  const MESSAGES_URL = `${BASE_URL}/api/v1/messages/my-messages`;
 
-  // Get user ID (works with both id and _id)
-  const getUserId = () => {
+  const getUserId = useCallback(() => {
     if (user?.id) return user.id;
     if (user?._id) return user._id;
     return null;
-  };
+  }, [user]);
 
-  // Fetch unread message count from server with debouncing and rate limiting
   const fetchUnreadCount = useCallback(async (retryCount = 0) => {
     if (!user) return;
     
-    // Prevent multiple simultaneous requests
     if (isFetchingRef.current) {
       console.log('⏳ Fetch already in progress, skipping...');
       return;
     }
     
-    // Rate limiting: minimum 2 seconds between requests
     const now = Date.now();
     if (now - lastFetchTimeRef.current < 2000) {
       console.log('⏳ Rate limited, skipping fetch...');
@@ -58,25 +54,28 @@ const Header = () => {
       lastFetchTimeRef.current = now;
       
       console.log('🔍 Fetching unread count for user:', user.email || user.name);
-      console.log('📡 URL:', HARDCODED_URL);
+      console.log('📡 URL:', MESSAGES_URL);
       
-      const response = await axios.get(HARDCODED_URL, {
+      const response = await axios.get(MESSAGES_URL, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
       
       const messages = response.data.data || [];
-      // Count unread messages where admin has replied and user hasn't read
       const unread = messages.filter(msg => msg.status === 'replied' && msg.userRead === false).length;
       
       console.log('📬 Unread count:', unread);
       setUnreadMessageCount(unread);
       localStorage.setItem('unreadMessageCount', unread);
       
-      // Also dispatch event for any other components
       window.dispatchEvent(new CustomEvent('unreadCountUpdate', { detail: { count: unread } }));
       
     } catch (error) {
+      // Silent fail for CORS errors - don't show error toasts
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('CORS')) {
+        console.log('⚠️ Network/CORS error, will retry later');
+        return;
+      }
       console.error('❌ Error fetching unread count:', error.response?.status, error.response?.data?.message);
       if (error.response?.status === 429) {
         console.log('Rate limit hit, will retry later');
@@ -87,9 +86,8 @@ const Header = () => {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [user]);
+  }, [user, MESSAGES_URL]);
 
-  // Debounced version of fetchUnreadCount
   const debouncedFetchUnreadCount = useCallback(() => {
     if (fetchDebounceRef.current) {
       clearTimeout(fetchDebounceRef.current);
@@ -99,18 +97,10 @@ const Header = () => {
     }, 1000);
   }, [fetchUnreadCount]);
 
-  // Setup WebSocket for real-time notifications
+  // Connect to socket - removed BASE_URL from dependencies
   useEffect(() => {
-    const userId = getUserId();
-    
-    if (user && userId) {
-      console.log('✅ User found, userId:', userId);
-      // Initial fetch
-      fetchUnreadCount();
-      
-      // Connect to Socket.io for real-time updates
-      const API_URL = 'https://smart-parking-backend-tefg.onrender.com';
-      const newSocket = io(API_URL, {
+    if (process.env.NODE_ENV !== 'production') {
+      const newSocket = io(BASE_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
@@ -118,28 +108,39 @@ const Header = () => {
       });
       setSocket(newSocket);
       
-      // Join user's room for private messages
       newSocket.on('connect', () => {
-        console.log('🔌 Socket connected, joining user room:', userId);
-        newSocket.emit('join-user', userId);
+        console.log('🔌 Socket connected');
       });
       
-      // Listen for new message replies
-      newSocket.on('new-message-reply', (data) => {
-        console.log('🔔 Received new message reply:', data);
-        // Immediately fetch updated count
-        fetchUnreadCount();
-      });
-      
-      // Handle socket errors
       newSocket.on('connect_error', (error) => {
         console.log('Socket connection error:', error);
       });
       
-      // Poll every 5 SECONDS with debounce (increased from 3 seconds)
+      return () => {
+        if (newSocket) {
+          newSocket.disconnect();
+          newSocket.close();
+        }
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Main useEffect for user and messages
+  useEffect(() => {
+    const userId = getUserId();
+    
+    if (user && userId) {
+      console.log('✅ User found, userId:', userId);
+      fetchUnreadCount();
+      
+      if (socket && socket.connected) {
+        socket.emit('join-user', userId);
+        console.log('Socket joined user room:', userId);
+      }
+      
       const interval = setInterval(() => debouncedFetchUnreadCount(), 5000);
       
-      // Also fetch when page becomes visible (user returns to tab)
       const handleVisibilityChange = () => {
         if (!document.hidden) {
           console.log('📱 Page became visible, fetching unread count...');
@@ -155,20 +156,18 @@ const Header = () => {
           clearTimeout(fetchDebounceRef.current);
         }
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        if (newSocket) {
-          newSocket.disconnect();
-          newSocket.close();
+        if (socket) {
+          socket.off('join-user');
         }
       };
     } else if (user && !userId) {
       console.log('⚠️ User exists but no ID. User object:', user);
-      console.log('Waiting for user ID to be available...');
     } else {
       console.log('No user logged in');
     }
-  }, [user, fetchUnreadCount, debouncedFetchUnreadCount]);
+  }, [user, getUserId, fetchUnreadCount, debouncedFetchUnreadCount, socket]);
 
-  // Listen for custom event from MyMessages page
+  // Listen for custom event
   useEffect(() => {
     const handleUnreadUpdate = (event) => {
       if (event.detail && typeof event.detail.count === 'number') {
@@ -180,7 +179,6 @@ const Header = () => {
     
     window.addEventListener('unreadCountUpdate', handleUnreadUpdate);
     
-    // Also check localStorage on mount
     const storedCount = localStorage.getItem('unreadMessageCount');
     if (storedCount && !isNaN(parseInt(storedCount))) {
       console.log('📦 Stored unread count from localStorage:', parseInt(storedCount));
@@ -199,7 +197,6 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <nav className="container mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-14 sm:h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-xl sm:text-2xl">
               🅿️
@@ -207,14 +204,11 @@ const Header = () => {
             <span className="text-base sm:text-xl font-bold tracking-wide">SmartPark</span>
           </Link>
 
-          {/* Desktop Navigation - Now using 'lg' instead of 'md' for better tablet support */}
           {user && (
             <div className="hidden lg:flex items-center space-x-4 xl:space-x-6">
               <Link to="/search" className="hover:text-blue-200 transition text-sm xl:text-base whitespace-nowrap">Find Parking</Link>
               <Link to="/dashboard" className="hover:text-blue-200 transition text-sm xl:text-base whitespace-nowrap">Dashboard</Link>
               <Link to="/my-bookings" className="hover:text-blue-200 transition text-sm xl:text-base whitespace-nowrap">My Bookings</Link>
-              
-              {/* Messages with Notification Badge */}
               <Link to="/my-messages" className="hover:text-blue-200 transition relative whitespace-nowrap text-sm xl:text-base">
                 Messages
                 {unreadMessageCount > 0 && (
@@ -223,13 +217,11 @@ const Header = () => {
                   </span>
                 )}
               </Link>
-              
               <Link to="/features" className="hover:text-blue-200 transition text-sm xl:text-base whitespace-nowrap">Features</Link>
               <Link to="/how-it-works" className="hover:text-blue-200 transition text-sm xl:text-base whitespace-nowrap">How It Works</Link>
             </div>
           )}
 
-          {/* Right Section */}
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
             {user ? (
               <div className="hidden lg:flex items-center space-x-2 xl:space-x-3">
@@ -267,7 +259,6 @@ const Header = () => {
               </div>
             )}
 
-            {/* Mobile Menu Button - Now shows on medium screens too */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-1.5 sm:p-2 rounded-md bg-white/10 hover:bg-white/20 transition text-base sm:text-xl"
@@ -277,7 +268,6 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Mobile Menu - Shows on smaller than lg */}
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}

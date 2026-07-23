@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BASE_URL } from '../../config/apiConfig';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -11,27 +12,24 @@ const MyMessages = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Debounce refs
   const fetchDebounceRef = useRef(null);
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
 
-  // Function to update unread count in localStorage and trigger navbar update
+  const API_URL = `${BASE_URL}/api/v1`;
+
   const updateUnreadCount = useCallback((newUnreadCount) => {
     setUnreadCount(newUnreadCount);
     localStorage.setItem('unreadMessageCount', newUnreadCount);
-    // Dispatch a custom event so Header can listen and update
     window.dispatchEvent(new CustomEvent('unreadCountUpdate', { detail: { count: newUnreadCount } }));
   }, []);
 
   const fetchMessages = useCallback(async (showToast = false) => {
-    // Prevent multiple simultaneous requests
     if (isFetchingRef.current) {
       console.log('⏳ Fetch already in progress, skipping...');
       return;
     }
     
-    // Rate limiting: minimum 2 seconds between requests
     const now = Date.now();
     if (now - lastFetchTimeRef.current < 2000) {
       console.log('⏳ Rate limited, skipping fetch...');
@@ -46,14 +44,13 @@ const MyMessages = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://smart-parking-backend-tefg.onrender.com/api/v1/messages/my-messages', {
+      const response = await axios.get(`${API_URL}/messages/my-messages`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000
       });
       const messageData = response.data.data;
       setMessages(messageData);
       
-      // Count unread messages (status = 'replied' means new reply from admin)
       const unread = messageData.filter(msg => msg.status === 'replied' && !msg.userRead).length;
       updateUnreadCount(unread);
       
@@ -72,9 +69,8 @@ const MyMessages = () => {
       setRefreshing(false);
       isFetchingRef.current = false;
     }
-  }, [updateUnreadCount]);
+  }, [updateUnreadCount, API_URL]);
 
-  // Debounced version of fetchMessages
   const debouncedFetchMessages = useCallback(() => {
     if (fetchDebounceRef.current) {
       clearTimeout(fetchDebounceRef.current);
@@ -84,20 +80,17 @@ const MyMessages = () => {
     }, 500);
   }, [fetchMessages]);
 
-  // Mark message as read when viewed
   const markMessageAsRead = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/messages/mark-read/${messageId}`, {}, {
+      await axios.put(`${API_URL}/messages/mark-read/${messageId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Update local state
       setMessages(prev => prev.map(msg => 
         msg._id === messageId ? { ...msg, userRead: true, status: 'read' } : msg
       ));
       
-      // Update unread count
       const newUnreadCount = Math.max(0, unreadCount - 1);
       updateUnreadCount(newUnreadCount);
       
@@ -106,19 +99,17 @@ const MyMessages = () => {
     }
   };
 
-  // Mark ALL messages as read when page loads (so badge clears when user visits)
   const markAllMessagesAsRead = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const unreadMessages = messages.filter(msg => msg.status === 'replied' && !msg.userRead);
       
       for (const msg of unreadMessages) {
-        await axios.put(`https://smart-parking-backend-tefg.onrender.com/api/v1/messages/mark-read/${msg._id}`, {}, {
+        await axios.put(`${API_URL}/messages/mark-read/${msg._id}`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
       
-      // Update local state for all unread messages
       if (unreadMessages.length > 0) {
         setMessages(prev => prev.map(msg => 
           msg.status === 'replied' && !msg.userRead 
@@ -126,18 +117,16 @@ const MyMessages = () => {
             : msg
         ));
         
-        // Set unread count to 0
         updateUnreadCount(0);
       }
       
     } catch (error) {
       console.error('Error marking all messages as read:', error);
     }
-  }, [messages, updateUnreadCount]);
+  }, [messages, updateUnreadCount, API_URL]);
 
   useEffect(() => {
     fetchMessages();
-    // Auto-refresh every 15 seconds with debounce (increased from 10 seconds)
     const interval = setInterval(() => debouncedFetchMessages(), 15000);
     return () => {
       clearInterval(interval);
@@ -147,14 +136,12 @@ const MyMessages = () => {
     };
   }, [fetchMessages, debouncedFetchMessages]);
 
-  // Mark all messages as read when component mounts (user visited the page)
   useEffect(() => {
     if (!loading && messages.length > 0) {
       markAllMessagesAsRead();
     }
   }, [loading, messages.length, markAllMessagesAsRead]);
 
-  // When user selects a message, mark it as read
   const handleSelectMessage = async (message) => {
     setSelectedMessage(message);
     if (message.status === 'replied' && !message.userRead) {
@@ -253,7 +240,6 @@ const MyMessages = () => {
             </div>
           ) : (
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Messages List */}
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                 {messages.map((message) => (
                   <div
@@ -286,7 +272,6 @@ const MyMessages = () => {
                 ))}
               </div>
 
-              {/* Message Detail */}
               <div className="bg-gray-50 rounded-xl p-5 min-h-[400px]">
                 {selectedMessage ? (
                   <div>
@@ -297,7 +282,6 @@ const MyMessages = () => {
                       </span>
                     </div>
                     
-                    {/* User Message */}
                     <div className="bg-white rounded-lg p-4 mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
@@ -311,7 +295,6 @@ const MyMessages = () => {
                       <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedMessage.message}</p>
                     </div>
                     
-                    {/* Admin Reply */}
                     {selectedMessage.adminReply && (
                       <div className="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
                         <div className="flex items-center gap-2 mb-2">
